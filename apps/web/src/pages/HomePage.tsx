@@ -216,34 +216,38 @@ export function HomePage() {
             <div className="flex flex-wrap items-start gap-5">
               {Object.entries(mySat.per_partner).map(([partnerId, stats]) => {
                 const meta = partnerByPersonId.get(partnerId);
+                const scheduled = stats.hours_scheduled ?? 0;
+                const wanted = stats.hours_wanted ?? 0;
+                // Format helpers: 2.5 → "2.5h"; 3 → "3h" (drop trailing .0)
+                const fmt = (h: number): string =>
+                  Number.isInteger(h) ? `${h}h` : `${h.toFixed(1)}h`;
+                const tooltip =
+                  wanted > 0
+                    ? `${fmt(scheduled)} of ${fmt(wanted)} this cycle`
+                    : `${fmt(scheduled)} this cycle`;
                 return (
                   <Link
                     key={partnerId}
                     to="/partners"
                     className="flex flex-col items-center gap-2 px-2"
+                    title={tooltip}
                   >
-                    <div className="relative">
-                      <Avatar
-                        name={meta?.name ?? '?'}
-                        src={meta?.avatarUrl ?? undefined}
-                        color={meta?.color}
-                        size={48}
-                      />
-                      <div
-                        className="absolute -bottom-1 -right-1 bg-cream rounded-full p-[1px] shadow-paper"
-                        title={`${Math.round((stats.pref_pct ?? 0) * 100)}% of preferred time`}
-                      >
-                        <SatisfactionRing
-                          pct={(stats.pref_pct ?? 0) * 100}
-                          color={meta?.color}
-                          size={24}
-                          strokeWidth={2}
-                          compact
-                        />
-                      </div>
-                    </div>
+                    <Avatar
+                      name={meta?.name ?? '?'}
+                      src={meta?.avatarUrl ?? undefined}
+                      color={meta?.color}
+                      size={48}
+                    />
                     <span className="text-[12px] text-ink-700 font-medium truncate max-w-[80px] text-center">
                       {(meta?.name ?? '').split(/\s+/)[0]}
+                    </span>
+                    <span
+                      className="text-[11px] tabular-nums font-medium"
+                      style={{ color: meta?.color ?? undefined }}
+                    >
+                      {wanted > 0
+                        ? `${fmt(scheduled)} / ${fmt(wanted)}`
+                        : fmt(scheduled)}
                     </span>
                     {!stats.need_met && (
                       <span className="text-[9.5px] uppercase tracking-[0.14em] text-wine-600 font-medium">

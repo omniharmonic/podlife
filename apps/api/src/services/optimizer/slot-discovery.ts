@@ -14,10 +14,60 @@
 import type { CandidateSlot, PreparedRequest } from './types.js';
 import { participantKeyOf } from './types.js';
 
+/**
+ * Time-of-day windows per event type, expressed as the LOCAL start hour of
+ * the first participant. Stops the optimizer from proposing a Date Night at
+ * 11am or a Daytime Hang at midnight just because the calendars happen to
+ * overlap there.
+ *
+ * Ranges are inclusive-start, exclusive-end (so [17, 22] = 17:00–21:59 start
+ * times). Event types not in the map have no time-of-day constraint —
+ * Pod Gatherings and Sub-group Hangs can land anywhere all participants
+ * are free.
+ */
+const EVENT_TIME_OF_DAY_LOCAL: Record<string, [number, number]> = {
+  'Date Night': [17, 22], // 5pm – just before 10pm start
+  Overnight: [18, 23], // 6pm – just before 11pm start
+  'Daytime Hang': [9, 16], // 9am – just before 4pm start
+};
+
+/** Hour-of-day in the given IANA timezone for a UTC instant. 0–23. */
+function localHour(date: Date, timezone: string): number {
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    hour: '2-digit',
+    hour12: false,
+  });
+  const parts = fmt.formatToParts(date);
+  const part = parts.find((p) => p.type === 'hour')?.value;
+  if (!part) return 0;
+  const n = parseInt(part, 10);
+  // Intl emits "24" for midnight in some zones; normalize.
+  return Number.isFinite(n) ? n % 24 : 0;
+}
+
+function isStartHourValid(
+  eventLabel: string,
+  startTime: Date,
+  participantTz: string,
+): boolean {
+  const range = EVENT_TIME_OF_DAY_LOCAL[eventLabel];
+  if (!range) return true;
+  const hour = localHour(startTime, participantTz);
+  return hour >= range[0] && hour < range[1];
+}
+
 /** Generate all candidate slots for the given prepared request. */
 export function discoverCandidateSlots(prepared: PreparedRequest): CandidateSlot[] {
   const { raw, horizonStart, horizonSlots, slotMinutes } = prepared;
   const candidates: CandidateSlot[] = [];
+
+  const tzByPersonId = new Map<string, string>();
+  for (const p of raw.persons) tzByPersonId.set(p.person_id, p.timezone);
+
+  /** Convert a slot index back to a UTC Date for tz comparisons. */
+  const slotToDate = (slot: number): Date =>
+    new Date(horizonStart.getTime() + slot * slotMinutes * 60_000);
 
   // ── 1. Per-person free slot sets ────────────────────────────────────
   const personFree = new Map<string, Set<number>>();
@@ -77,6 +127,11 @@ export function discoverCandidateSlots(prepared: PreparedRequest): CandidateSlot
     const runs = findContiguousRuns([...sharedFree].sort((a, b) => a - b));
     const partnershipId = pref.partnership_id ?? null;
 
+    // Use the first participant's timezone for time-of-day filtering. For
+    // mixed-tz pairs this is a heuristic — the right thing long-term is to
+    // check the intersection of both partners' allowable windows.
+    const tzForPair = tzByPersonId.get(pairIds[0]!) ?? 'UTC';
+
     for (const [runStart, runEnd] of runs) {
       const runLength = runEnd - runStart;
       for (const et of raw.event_types) {
@@ -85,6 +140,8 @@ export function discoverCandidateSlots(prepared: PreparedRequest): CandidateSlot
         const slotsNeeded = Math.trunc(et.duration_minutes / slotMinutes);
         if (slotsNeeded <= 0 || runLength < slotsNeeded) continue;
         for (let offset = 0; offset <= runLength - slotsNeeded; offset++) {
+          const startTime = slotToDate(runStart + offset);
+          if (!isStartHourValid(et.label, startTime, tzForPair)) continue;
           candidates.push({
             startSlot: runStart + offset,
             endSlot: runStart + offset + slotsNeeded,
