@@ -72,3 +72,4 @@ temp/
 .vercel
 .playwright-mcp/
 e2e-*.png
+.env.vercel
