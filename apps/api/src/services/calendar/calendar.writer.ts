@@ -56,11 +56,36 @@ function providerFor(name: string): CalendarProvider | null {
  * Push a HOLD-prefixed event to the participant's connected calendar.
  * No-op when the participant has no connection. Errors are swallowed and
  * logged — the caller's accept flow must not block on calendar writes.
+ *
+ * Idempotent: if an external_event_id is already stored for this (block,
+ * person) pair, we skip the push. Without this guard, repeated clicks of
+ * Accept (or accept→re-accept-without-decline) duplicate calendar events.
+ * The decline path clears external_event_id, so accept-after-decline still
+ * pushes a fresh event.
  */
 export async function pushHoldEventForParticipant(
   block: TimeBlockRow,
   personId: string,
 ): Promise<void> {
+  const existingRows = await db
+    .select({ externalEventId: timeBlockParticipants.externalEventId })
+    .from(timeBlockParticipants)
+    .where(
+      and(
+        eq(timeBlockParticipants.timeBlockId, block.id),
+        eq(timeBlockParticipants.personId, personId),
+      ),
+    )
+    .limit(1);
+  if (existingRows[0]?.externalEventId) {
+    logger.info('skipping duplicate HOLD push (already pushed)', {
+      blockId: block.id,
+      personId,
+      eventId: existingRows[0].externalEventId,
+    });
+    return;
+  }
+
   const connection = await firstActiveConnection(personId);
   if (!connection) return;
 

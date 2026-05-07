@@ -398,6 +398,35 @@ function buildLp(candidates: CandidateSlot[], prepared: PreparedRequest): string
     addRow(terms, '<=', gathering.frequency);
   }
 
+  // CONSTRAINT 6b: Pod-gathering daily cap — at most 1 Pod Gathering per
+  // pod per day. Without this the solver happily slots two consecutive
+  // 3-hour gatherings on the same Sunday afternoon if the pref allows
+  // multiple per cycle. Group candidates by pod + UTC date and require
+  // the sum to be ≤ 1.
+  const podDailyGroups = new Map<string, number[]>();
+  for (let ci = 0; ci < n; ci++) {
+    const cand = candidates[ci]!;
+    if (!cand.podId) continue;
+    const dayMs = prepared.slotMinutes * 60_000;
+    const dayStartMs = prepared.horizonStart.getTime() + cand.startSlot * dayMs;
+    const dayKey = new Date(dayStartMs).toISOString().slice(0, 10); // YYYY-MM-DD
+    const key = `${cand.podId}|${dayKey}`;
+    let arr = podDailyGroups.get(key);
+    if (!arr) {
+      arr = [];
+      podDailyGroups.set(key, arr);
+    }
+    arr.push(ci);
+  }
+  for (const indices of podDailyGroups.values()) {
+    if (indices.length < 2) continue; // can't double-up if only one candidate
+    addRow(
+      indices.map((ci) => ({ coef: 1, varName: `x${ci}` })),
+      '<=',
+      1,
+    );
+  }
+
   // Sub-group frequency cap.
   for (const sub of raw.subgroup_prefs) {
     if (sub.frequency <= 0) continue;
