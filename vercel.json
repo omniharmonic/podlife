@@ -6,7 +6,8 @@
   "installCommand": "pnpm install --frozen-lockfile",
   "functions": {
     "api/index.ts": {
-      "maxDuration": 60
+      "maxDuration": 60,
+      "includeFiles": "node_modules/.pnpm/highs@*/node_modules/highs/build/**"
     }
   },
   "rewrites": [
