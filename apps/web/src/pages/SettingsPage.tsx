@@ -116,10 +116,10 @@ export function SettingsPage() {
   }
 
   async function saveAvailability() {
-    if (windows.length === 0) {
-      showToast('Add at least one free window', 'error');
-      return;
-    }
+    // Empty saves are valid — they clear all manual windows. The server's
+    // schema permits 0–200 windows. When a calendar is connected, the
+    // optimizer prefers it and ignores manual entries entirely (see
+    // calendar.aggregator.ts: providerSucceeded short-circuit).
     const isoWindows = windows.map((w) => {
       const day = addDays(weekStart, w.day);
       const [sh = 0, sm = 0] = w.start.split(':').map(Number);
@@ -254,6 +254,14 @@ export function SettingsPage() {
           </span>
           . Use this if you don't connect a calendar.
         </p>
+        {googleConnection ? (
+          <p className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2 mb-4">
+            Google Calendar is connected — Pod Life uses your real free/busy
+            windows and ignores anything you set here. Clear these to keep
+            things tidy, or leave them as a fallback in case the calendar
+            ever disconnects.
+          </p>
+        ) : null}
         <div className="flex flex-col gap-3">
           {windows.map((w, i) => (
             <div
@@ -293,12 +301,23 @@ export function SettingsPage() {
             </div>
           ))}
         </div>
-        <div className="flex justify-between gap-2 mt-5">
-          <Button variant="ghost" onClick={addWindow}>
-            Add window
-          </Button>
+        <div className="flex flex-wrap justify-between gap-2 mt-5">
+          <div className="flex gap-2">
+            <Button variant="ghost" onClick={addWindow}>
+              Add window
+            </Button>
+            {windows.length > 0 ? (
+              <Button
+                variant="ghost"
+                onClick={() => setWindows([])}
+                title="Remove every window from this list. Click Save to persist."
+              >
+                Clear all
+              </Button>
+            ) : null}
+          </div>
           <Button onClick={saveAvailability} loading={setAvailability.isPending}>
-            Save availability
+            {windows.length === 0 ? 'Save (clear)' : 'Save availability'}
           </Button>
         </div>
       </Section>
