@@ -13,7 +13,7 @@
  * Wired to /api/cron/auto-lock via vercel.json (runs daily on Hobby; happy
  * to bump to hourly if/when you upgrade to Pro).
  */
-import { and, eq, lt } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { timeBlocks } from '../db/schema.js';
 import { logger } from '../lib/logger.js';
@@ -43,23 +43,11 @@ export async function runAutoLock(): Promise<void> {
     }
   }
 
-  // 2. Cycles whose review window has expired (proposed → locked of
-  //    whatever has been accepted, drop the rest). Stub for now — needs
-  //    product input on what happens to declined/un-responded blocks.
-  //    Logging the count so we can see when we'd be acting if implemented.
-  const expired = await db
-    .select({ id: timeBlocks.id })
-    .from(timeBlocks)
-    .innerJoin(
-      // schedulingCycles, etc — left as a TODO until product behavior is set.
-      timeBlocks,
-      eq(timeBlocks.id, timeBlocks.id),
-    )
-    .where(
-      and(eq(timeBlocks.status, 'proposed'), lt(timeBlocks.endTime, now)),
-    )
-    .limit(0);
-  void expired;
+  // TODO (product): handle blocks that have a partial-accept past their
+  // review window. The intended behavior is up for discussion — should
+  // declined / never-responded blocks be silently dropped, or surface as
+  // an unresolved item? Leaving as a no-op until that's decided.
+  void now;
 
   logger.info('auto-lock complete', { acceptedSwept: accepted.length });
 }
