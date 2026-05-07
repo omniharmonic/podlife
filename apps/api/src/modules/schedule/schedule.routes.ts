@@ -17,6 +17,11 @@ import {
 import { ForbiddenError, NotFoundError } from '../../lib/errors.js';
 import { processCycleJob, triggerCycle } from './cycle.manager.js';
 import { send as notify } from '../../services/notification/notification.service.js';
+import {
+  pushHoldEventForParticipant,
+  cancelEventForParticipant,
+  confirmEventsForBlock,
+} from '../../services/calendar/calendar.writer.js';
 import { config } from '../../lib/config.js';
 import { logger } from '../../lib/logger.js';
 
@@ -203,14 +208,31 @@ scheduleRoutes.post(
         ),
       );
 
-    // If all participants accepted, mark block accepted.
-    if (response === 'accepted') {
+    // Calendar lifecycle:
+    //   accept   → push HOLD event to this participant's calendar
+    //   decline  → delete the event we previously pushed (if any)
+    // Both calls are best-effort — failures are logged and do not break
+    // the user-facing accept/decline flow. The cron sweep retries.
+    const blockRows = await db.select().from(timeBlocks).where(eq(timeBlocks.id, id)).limit(1);
+    const block = blockRows[0];
+
+    if (response === 'accepted' && block) {
+      await pushHoldEventForParticipant(block, me.id);
+    } else if (response === 'declined') {
+      await cancelEventForParticipant(id, me.id);
+    }
+
+    // If all participants accepted, mark block accepted AND drop the HOLD
+    // prefix from each participant's calendar event inline (the cron sweep
+    // also handles this as a safety net for failed inline calls).
+    if (response === 'accepted' && block) {
       const all = await db
         .select()
         .from(timeBlockParticipants)
         .where(eq(timeBlockParticipants.timeBlockId, id));
       if (all.every((p) => p.response === 'accepted')) {
-        await db.update(timeBlocks).set({ status: 'accepted' }).where(eq(timeBlocks.id, id));
+        await db.update(timeBlocks).set({ status: 'locked' }).where(eq(timeBlocks.id, id));
+        await confirmEventsForBlock(block);
       }
     }
 

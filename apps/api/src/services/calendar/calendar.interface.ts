@@ -29,6 +29,16 @@ export interface CalendarProvider {
 
   createEvent(connection: CalendarConnectionRow, event: CalendarEvent): Promise<string>;
 
+  /**
+   * Patch an existing event. Only fields present in `patch` are updated;
+   * unspecified fields are left untouched on the provider side.
+   */
+  updateEvent(
+    connection: CalendarConnectionRow,
+    eventId: string,
+    patch: Partial<CalendarEvent>,
+  ): Promise<void>;
+
   deleteEvent(connection: CalendarConnectionRow, eventId: string): Promise<void>;
 
   refreshToken(connection: CalendarConnectionRow): Promise<CalendarConnectionRow>;

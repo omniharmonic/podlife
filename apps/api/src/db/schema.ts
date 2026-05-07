@@ -376,6 +376,13 @@ export const timeBlockParticipants = pgTable(
     response: participantResponseEnum('response').notNull().default('pending'),
     changeNote: text('change_note'),
     respondedAt: timestamp('responded_at', { withTimezone: true }),
+    /**
+     * External calendar event identifier — set when the participant accepts
+     * and we successfully push a HOLD event to their connected calendar. Null
+     * for participants without a connected calendar, or before they accept.
+     */
+    externalEventId: text('external_event_id'),
+    externalEventProvider: text('external_event_provider'), // 'google' | 'microsoft' | …
   },
   (t) => [
     primaryKey({ columns: [t.timeBlockId, t.personId] }),

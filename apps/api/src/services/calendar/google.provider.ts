@@ -227,6 +227,29 @@ export const googleProvider: CalendarProvider = {
     return data.id;
   },
 
+  async updateEvent(
+    connection,
+    eventId: string,
+    patch: Partial<CalendarEvent>,
+  ): Promise<void> {
+    const body: Record<string, unknown> = {};
+    if (patch.summary !== undefined) body.summary = patch.summary;
+    if (patch.description !== undefined) body.description = patch.description;
+    if (patch.start !== undefined) body.start = { dateTime: patch.start.toISOString() };
+    if (patch.end !== undefined) body.end = { dateTime: patch.end.toISOString() };
+    if (patch.attendees !== undefined) {
+      body.attendees = patch.attendees.map((email) => ({ email }));
+    }
+    if (Object.keys(body).length === 0) return; // nothing to do
+    await googleFetch(
+      connection,
+      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(
+        connection.calendarId ?? 'primary',
+      )}/events/${encodeURIComponent(eventId)}`,
+      { method: 'PATCH', body: JSON.stringify(body) },
+    );
+  },
+
   async deleteEvent(connection, eventId: string): Promise<void> {
     const { accessToken } = await ensureFreshToken(connection);
     const res = await fetch(

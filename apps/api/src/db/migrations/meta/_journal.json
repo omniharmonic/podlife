@@ -15,6 +15,13 @@
       "when": 1778141893147,
       "tag": "0001_deep_argent",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1778190000000,
+      "tag": "0002_calendar_event_ids",
+      "breakpoints": true
     }
   ]
 }
