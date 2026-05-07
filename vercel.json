@@ -1,8 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "buildCommand": "pnpm --filter @pod-life/shared build && pnpm --filter @pod-life/api build && mkdir -p public",
-  "outputDirectory": "public",
+  "buildCommand": "pnpm --filter @pod-life/shared build && pnpm --filter @pod-life/api build && pnpm --filter @pod-life/web build",
+  "outputDirectory": "apps/web/dist",
   "installCommand": "pnpm install --frozen-lockfile",
   "functions": {
     "api/index.ts": {
@@ -10,7 +10,13 @@
     }
   },
   "rewrites": [
-    { "source": "/(.*)", "destination": "/api/index" }
+    { "source": "/api/cron/:path*", "destination": "/api/index" },
+    { "source": "/api/:path*", "destination": "/api/index" },
+    { "source": "/auth/:path*", "destination": "/api/index" },
+    { "source": "/internal/:path*", "destination": "/api/index" },
+    { "source": "/telegram/webhook/:path*", "destination": "/api/index" },
+    { "source": "/health", "destination": "/api/index" },
+    { "source": "/((?!api/|auth/|internal/|telegram/|health|assets/|.*\\..*).*)", "destination": "/index.html" }
   ],
   "crons": [
     {
