@@ -12,6 +12,12 @@ export function usePartnersList() {
     queryKey: KEYS.list,
     queryFn: () => partners.list(),
     select: (d) => d.partners,
+    // The partners list can change out-of-band — when a partner accepts an
+    // invite, the inviter's client has no way to know to invalidate.
+    // Always refetch on mount so /home reflects newly-accepted partners on
+    // the next navigation, instead of waiting out staleTime.
+    refetchOnMount: 'always',
+    staleTime: 0,
   });
 }
 

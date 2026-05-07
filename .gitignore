@@ -70,3 +70,5 @@ temp/
 /partners-*.png
 /pod-*.png
 .vercel
+.playwright-mcp/
+e2e-*.png

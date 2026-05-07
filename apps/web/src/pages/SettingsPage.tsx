@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Toggle } from '@/components/ui/Toggle';
 import { EditorialHeading } from '@/components/ui/EditorialHeading';
 import { useSetManualAvailability } from '@/hooks/useAvailability';
-import { me as meApi } from '@/lib/api';
+import { me as meApi, getSessionToken } from '@/lib/api';
 import { useUiStore } from '@/stores/ui.store';
 import { format, getWeekStart } from '@/lib/dates';
 
@@ -207,8 +207,19 @@ export function SettingsPage() {
           windows only — never event titles.
         </p>
         <div className="flex flex-col">
-          <CalendarRow name="Google Calendar" connectHref="/auth/google/start" />
-          <CalendarRow name="Outlook" connectHref="/auth/microsoft/start" />
+          {/*
+           * The /auth/calendar/* routes need the session token in the query
+           * because they redirect into the OAuth provider, which drops headers.
+           * Building the href lazily so the latest session token is used.
+           */}
+          <CalendarRow
+            name="Google Calendar"
+            connectHref={`/auth/calendar/google?token=${encodeURIComponent(getSessionToken() ?? '')}`}
+          />
+          <CalendarRow
+            name="Outlook"
+            connectHref={`/auth/calendar/microsoft?token=${encodeURIComponent(getSessionToken() ?? '')}`}
+          />
           <CalendarRow name="iCloud (CalDAV)" comingSoon />
         </div>
       </Section>

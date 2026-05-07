@@ -24,7 +24,12 @@ import { sendEmail } from '../../services/email/email.service.js';
 export interface MagicLinkRequestResult {
   /** Always true to prevent email enumeration; magic link is sent if email is valid. */
   ok: true;
-  /** Dev-only: present when SMTP not configured so devs can complete the flow. */
+  /**
+   * Dev/test-only escape hatch. Present ONLY when NODE_ENV !== production AND
+   * no real email transport is configured (Resend or SMTP). Production responses
+   * never include these — emitting them would be a self-serve auth bypass since
+   * anyone who knows an email could grab the token without owning the inbox.
+   */
   devToken?: string;
   devVerifyUrl?: string;
 }
@@ -59,7 +64,16 @@ export async function requestMagicLink(email: string): Promise<MagicLinkRequestR
 
   logger.info('magic link requested', { email });
 
-  if (!config.smtp.enabled || !config.isProduction) {
+  // Only leak the token back to the client in non-production environments
+  // where the email won't actually be delivered. In production we MUST NOT
+  // return it — see the docstring on MagicLinkRequestResult.
+  //
+  // The email service short-circuits in tests (printing a banner instead of
+  // calling the real provider), so for test purposes Resend/SMTP being
+  // configured doesn't mean a real email was sent. Mirror that here.
+  const willReallySend =
+    !config.isTest && (config.resend.enabled || config.smtp.enabled);
+  if (!config.isProduction && !willReallySend) {
     return { ok: true, devToken: token, devVerifyUrl: verifyUrl };
   }
   return { ok: true };
