@@ -94,10 +94,10 @@ export function HomePage() {
   async function handleRunCycle() {
     try {
       await runCycle.mutateAsync();
-      showToast('Building your schedule…', 'info');
+      showToast('Looking at this week — back in a moment…', 'info');
     } catch (err) {
       showToast(
-        err instanceof Error ? err.message : 'Could not start a cycle',
+        err instanceof Error ? err.message : "Couldn't get the check-in started — try again?",
         'error',
       );
     }
@@ -223,8 +223,8 @@ export function HomePage() {
                   Number.isInteger(h) ? `${h}h` : `${h.toFixed(1)}h`;
                 const tooltip =
                   wanted > 0
-                    ? `${fmt(scheduled)} of ${fmt(wanted)} this cycle`
-                    : `${fmt(scheduled)} this cycle`;
+                    ? `${fmt(scheduled)} of ${fmt(wanted)} this week`
+                    : `${fmt(scheduled)} this week`;
                 return (
                   <Link
                     key={partnerId}
@@ -303,11 +303,11 @@ export function HomePage() {
         </div>
         <div className="flex flex-wrap gap-2.5">
           <Button onClick={handleRunCycle} loading={runCycle.isPending} disabled={!hasPartners}>
-            Run a cycle
+            Find time
           </Button>
           <Link to="/partners">
             <Button variant="ghost">
-              {hasPartners ? 'Update preferences' : 'Invite a partner'}
+              {hasPartners ? 'Adjust your hopes' : 'Invite a partner'}
             </Button>
           </Link>
           {primaryPod && (

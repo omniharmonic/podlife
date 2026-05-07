@@ -52,18 +52,18 @@ export function WelcomePage() {
           className="font-display italic text-ink-900 text-5xl sm:text-7xl leading-[1.02] tracking-tight mb-8"
           style={{ fontVariationSettings: "'opsz' 144, 'SOFT' 80, 'wght' 360" }}
         >
-          Relationship scheduling
+          I want
           <br />
-          for{' '}
-          <span className="text-terracotta-600">polyamorous families.</span>
+          <span className="text-terracotta-600">what you want.</span>
         </motion.h1>
 
         <Flourish variant="laurel" className="w-44 h-8 text-ink-300 mx-auto my-8" />
 
         <p className="text-lg text-ink-700 max-w-2xl mx-auto mb-10 leading-[1.7] italic">
-          Connect your calendars, set how much quality time you want with each
-          person, and let a fairness-first optimizer propose schedules that
-          actually feel fair.
+          A small instrument for the people who love more than one person —
+          and want to actually show up for all of them. Tell us what kind of
+          time matters with each one. We'll find a plan where everyone gets
+          cared for.
         </p>
         <div className="flex flex-col sm:flex-row gap-3 items-center justify-center">
           <Link to="/login">
@@ -98,27 +98,27 @@ export function WelcomePage() {
           How it works
         </h2>
         <p className="text-center text-ink-500 max-w-xl mx-auto mb-14 italic">
-          Three steps from "I have no idea when I'll see them this week" to a
-          locked schedule everyone agreed to.
+          Three movements, from "I have no idea when I'll see them this week"
+          to a plan everyone is happy with.
         </p>
 
         <div className="flex flex-col gap-12">
           <Stanza
             number="i."
-            title="Connect your calendars"
-            description="Google, Outlook, or your own hand. We read free/busy windows only — never the names of your meetings or who you saw on Tuesday. The less we know, the more honest the schedule."
+            title="Connect your calendar"
+            description="Google, Outlook, or your own hand. We read free/busy only — never the names of your meetings or who you saw on Tuesday. Sovereignty and connection live together here."
           />
           <FlourishDivider />
           <Stanza
             number="ii."
-            title="Set your preferences"
-            description="How many hours a week with each partner? How many slow mornings? Any non-negotiable holds? You tell us once, in plain numbers, and we keep the count."
+            title="Share what kind of time matters"
+            description="With each person you love, tell us two things: what you need (the minimum that keeps the relationship feeling cared for) and what you hope for (the version where the week lines up). No primary, no secondary — just what's true for each one."
           />
           <FlourishDivider />
           <Stanza
             number="iii."
-            title="Receive a fair schedule"
-            description="The optimizer proposes a week that maximizes the satisfaction of the least-happy person. No one is steamrolled, no one is forgotten. Accept what works; suggest changes to what doesn't."
+            title="Get a plan that fits everyone"
+            description="Pod Life suggests a week where the person with the least gets as much as possible. Nobody's left behind. Accept what works; ask to reshuffle what doesn't. You're always in choice."
           />
         </div>
       </section>
@@ -140,8 +140,8 @@ export function WelcomePage() {
         </h2>
         <div className="grid md:grid-cols-2 gap-x-12 gap-y-10">
           <Feature
-            title="Maximin fairness"
-            description="A constraint solver that finds the fairest schedule, not just any schedule. Mathematically prevents winner-take-all outcomes."
+            title="Nobody gets left behind"
+            description="Under the hood, Pod Life finds the plan where the person with the least is getting as much as possible. Not averaging. Not compromising. Making sure everyone's cared for."
           />
           <Feature
             title="Privacy-first by design"

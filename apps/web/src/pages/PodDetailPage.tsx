@@ -144,7 +144,7 @@ export function PodDetailPage() {
         <Card padding="md">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="eyebrow mb-2">Scheduling cycle</p>
+              <p className="eyebrow mb-2">Check-in rhythm</p>
               {!editingCycle ? (
                 <>
                   <p className="font-display text-ink-800 text-2xl leading-tight">
@@ -152,11 +152,11 @@ export function PodDetailPage() {
                     {dayName(pod.data.cycleDayOfWeek)}s
                   </p>
                   <p className="text-sm text-ink-500 mt-1">
-                    Each cycle drafts a new schedule, leaving you{' '}
+                    Every check-in suggests a new plan. You'll have{' '}
                     <span className="text-ink-700 font-medium">
                       {pod.data.reviewWindowHours}h
                     </span>{' '}
-                    to review.
+                    to look it over before anything is committed.
                   </p>
                 </>
               ) : (
@@ -194,7 +194,7 @@ export function PodDetailPage() {
       <section className="flex flex-col gap-3">
         <div className="flex items-baseline justify-between">
           <h2 className="font-display text-ink-800 text-2xl">Pod health</h2>
-          <span className="text-xs text-ink-500">This cycle</span>
+          <span className="text-xs text-ink-500">This week</span>
         </div>
         {health.isLoading ? (
           <Card padding="md">
@@ -203,7 +203,7 @@ export function PodDetailPage() {
         ) : (health.data?.members?.length ?? 0) === 0 ? (
           <Card as="dashed" padding="md">
             <p className="text-sm text-ink-500">
-              Health metrics will appear here once a cycle has run.
+              How everyone's doing will show up here after the first check-in.
             </p>
           </Card>
         ) : (

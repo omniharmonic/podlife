@@ -46,10 +46,10 @@ export function CalendarPage() {
   async function handleRunCycle() {
     try {
       await runCycle.mutateAsync();
-      showToast('Building your schedule…', 'info');
+      showToast('Looking at this week — back in a moment…', 'info');
     } catch (err) {
       showToast(
-        err instanceof Error ? err.message : 'Could not start a cycle',
+        err instanceof Error ? err.message : "Couldn't quite get the check-in going — try again?",
         'error',
       );
     }
@@ -106,8 +106,8 @@ export function CalendarPage() {
       {!proposals.isLoading && blocks.length === 0 && (
         <Card as="dashed" padding="lg">
           <EmptyState
-            title="Your week is unmarked"
-            description="When you've added partners and set preferences, you can ask Pod Life to draft a fair schedule."
+            title="Your week is open"
+            description="Add a partner, share what kind of time matters with each of them, and Pod Life will suggest a plan where everyone gets cared for."
             action={
               <div className="flex flex-col items-center gap-3">
                 <Button
@@ -116,11 +116,11 @@ export function CalendarPage() {
                   onClick={handleRunCycle}
                   disabled={partnerList.length === 0}
                 >
-                  Build a schedule
+                  Find time
                 </Button>
                 {partnerList.length === 0 && (
                   <Link to="/partners">
-                    <Button variant="ghost">Add a partner first</Button>
+                    <Button variant="ghost">Invite a partner first</Button>
                   </Link>
                 )}
               </div>
@@ -139,7 +139,7 @@ export function CalendarPage() {
         <section>
           <div className="flex items-baseline justify-between mb-3">
             <h2 className="font-display text-ink-800 text-2xl">
-              Time together this cycle
+              Time together this week
             </h2>
           </div>
           <Card padding="md">
