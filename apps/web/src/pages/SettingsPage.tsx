@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/Button';
 import { Toggle } from '@/components/ui/Toggle';
 import { EditorialHeading } from '@/components/ui/EditorialHeading';
 import { useSetManualAvailability } from '@/hooks/useAvailability';
-import { me as meApi, getSessionToken } from '@/lib/api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { me as meApi, getSessionToken, calendars as calendarsApi } from '@/lib/api';
 import { useUiStore } from '@/stores/ui.store';
 import { format, getWeekStart } from '@/lib/dates';
 
@@ -48,6 +49,26 @@ export function SettingsPage() {
   const { person, setPerson } = useAuth();
   const setAvailability = useSetManualAvailability();
   const showToast = useUiStore((s) => s.showToast);
+  const queryClient = useQueryClient();
+
+  // Calendar connections — refetch on mount so a successful OAuth callback
+  // (which redirects back to /settings/calendars?connected=google) shows the
+  // freshly-stored connection without a manual reload.
+  const calendarConnections = useQuery({
+    queryKey: ['calendars', 'connections'],
+    queryFn: () => calendarsApi.list(),
+    select: (d) => d.connections,
+    refetchOnMount: 'always',
+    staleTime: 0,
+  });
+  const disconnectCalendar = useMutation({
+    mutationFn: (id: string) => calendarsApi.disconnect(id),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ['calendars', 'connections'] }),
+  });
+  const googleConnection = (calendarConnections.data ?? []).find(
+    (c) => c.provider === 'google',
+  );
 
   const [displayName, setDisplayName] = useState(person?.displayName ?? '');
   const [timezone, setTimezone] = useState(person?.timezone ?? 'America/Denver');
@@ -215,6 +236,9 @@ export function SettingsPage() {
           <CalendarRow
             name="Google Calendar"
             connectHref={`/auth/calendar/google?token=${encodeURIComponent(getSessionToken() ?? '')}`}
+            connection={googleConnection ?? undefined}
+            onDisconnect={(id) => disconnectCalendar.mutate(id)}
+            disconnecting={disconnectCalendar.isPending}
           />
           <CalendarRow name="Outlook" comingSoon />
           <CalendarRow name="iCloud (CalDAV)" comingSoon />
@@ -328,16 +352,46 @@ interface CalendarRowProps {
   name: string;
   connectHref?: string;
   comingSoon?: boolean;
+  /** When provided, the row shows a Connected badge + Disconnect button. */
+  connection?: { id: string; lastSyncedAt: string | null; syncError: string | null };
+  onDisconnect?: (id: string) => void;
+  disconnecting?: boolean;
 }
 
-function CalendarRow({ name, connectHref, comingSoon }: CalendarRowProps) {
+function CalendarRow({
+  name,
+  connectHref,
+  comingSoon,
+  connection,
+  onDisconnect,
+  disconnecting,
+}: CalendarRowProps) {
   return (
     <div className="flex items-center justify-between py-3 border-b border-ink-100/60 last:border-b-0">
-      <span className="text-[15px] text-ink-800 font-medium">{name}</span>
+      <div className="flex flex-col">
+        <span className="text-[15px] text-ink-800 font-medium">{name}</span>
+        {connection?.syncError ? (
+          <span className="text-[12px] text-rose-600 mt-0.5">{connection.syncError}</span>
+        ) : null}
+      </div>
       {comingSoon ? (
         <span className="text-[10px] uppercase tracking-[0.14em] font-medium text-ink-500 bg-ink-50 border border-ink-100 px-2 py-0.5 rounded-full">
           Coming soon
         </span>
+      ) : connection ? (
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] uppercase tracking-[0.14em] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+            Connected
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onDisconnect?.(connection.id)}
+            disabled={disconnecting}
+          >
+            {disconnecting ? 'Disconnecting…' : 'Disconnect'}
+          </Button>
+        </div>
       ) : (
         <a href={connectHref}>
           <Button variant="ghost" size="sm">

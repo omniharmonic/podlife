@@ -263,6 +263,25 @@ export const availability = {
   },
 };
 
+export interface CalendarConnection {
+  id: string;
+  provider: 'google' | 'microsoft' | 'apple';
+  lastSyncedAt: string | null;
+  syncError: string | null;
+  scopes: string[];
+}
+
+export const calendars = {
+  list() {
+    return request<{ connections: CalendarConnection[] }>(`/api/me/calendars`);
+  },
+  disconnect(id: string) {
+    return request<{ ok: true }>(`/api/me/calendars/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
 export const schedule = {
   runCycle() {
     return request<{ cycleId: string }>(`/api/schedule/run`, { method: 'POST' });
