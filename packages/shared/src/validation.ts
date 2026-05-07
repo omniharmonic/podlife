@@ -8,7 +8,7 @@ import {
   CYCLE_STATUS,
   POD_ROLE,
   NOTIFICATION_CHANNEL,
-} from './enums';
+} from './enums.js';
 
 const HHMM = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Must be HH:MM');
 const DayOfWeek = z.number().int().min(0).max(6);

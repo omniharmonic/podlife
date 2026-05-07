@@ -22,8 +22,8 @@ import {
   timeBlockParticipants,
 } from '../../db/schema.js';
 import { NotFoundError } from '../../lib/errors.js';
-import { toPersonDto } from './persons.dto.ts';
-import { cleanupRedisForPerson } from './persons.lifecycle.ts';
+import { toPersonDto } from './persons.dto.js';
+import { cleanupRedisForPerson } from './persons.lifecycle.js';
 
 export const personsRoutes = new Hono();
 

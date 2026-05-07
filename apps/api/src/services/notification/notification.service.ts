@@ -4,10 +4,10 @@
  * Telegram DM via the adapter. Failures are logged best-effort, not bubbled.
  */
 import { eq } from 'drizzle-orm';
-import { db } from '../../db/index.ts';
-import { notifications, persons } from '../../db/schema.ts';
-import { logger } from '../../lib/logger.ts';
-import { sendDmToPerson } from './telegram.adapter.ts';
+import { db } from '../../db/index.js';
+import { notifications, persons } from '../../db/schema.js';
+import { logger } from '../../lib/logger.js';
+import { sendDmToPerson } from './telegram.adapter.js';
 
 export interface NotificationPayload {
   title: string;

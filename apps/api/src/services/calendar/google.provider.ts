@@ -7,16 +7,16 @@
  *  - https://www.googleapis.com/auth/calendar.freebusy  (free/busy)
  */
 import { eq } from 'drizzle-orm';
-import { config } from '../../lib/config.ts';
-import { db } from '../../db/index.ts';
-import { calendarConnections, type CalendarConnectionRow } from '../../db/schema.ts';
-import { decrypt, encrypt } from '../encryption/vault.ts';
-import { AppError } from '../../lib/errors.ts';
+import { config } from '../../lib/config.js';
+import { db } from '../../db/index.js';
+import { calendarConnections, type CalendarConnectionRow } from '../../db/schema.js';
+import { decrypt, encrypt } from '../encryption/vault.js';
+import { AppError } from '../../lib/errors.js';
 import type {
   CalendarEvent,
   CalendarProvider,
   FreeBusyWindow,
-} from './calendar.interface.ts';
+} from './calendar.interface.js';
 
 const SCOPES = [
   'https://www.googleapis.com/auth/calendar.freebusy',

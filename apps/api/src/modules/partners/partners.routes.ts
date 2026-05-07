@@ -12,7 +12,7 @@ import {
   listPartners,
   updateMyPreferences,
   updatePartnershipStatus,
-} from './partners.service.ts';
+} from './partners.service.js';
 
 export const partnersRoutes = new Hono();
 

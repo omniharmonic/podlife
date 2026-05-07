@@ -4,8 +4,8 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { requirePodMember } from '../../middleware/pod-access.middleware.ts';
-import { createNote, deleteNote, listNotes, updateNote } from './notes.service.ts';
+import { requirePodMember } from '../../middleware/pod-access.middleware.js';
+import { createNote, deleteNote, listNotes, updateNote } from './notes.service.js';
 
 export const notesRoutes = new Hono();
 

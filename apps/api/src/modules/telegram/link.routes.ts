@@ -8,15 +8,15 @@
  */
 import { Hono } from 'hono';
 import { and, eq, isNotNull } from 'drizzle-orm';
-import { config } from '../../lib/config.ts';
-import { db } from '../../db/index.ts';
-import { podMembers } from '../../db/schema.ts';
-import { AppError, ForbiddenError, NotFoundError } from '../../lib/errors.ts';
+import { config } from '../../lib/config.js';
+import { db } from '../../db/index.js';
+import { podMembers } from '../../db/schema.js';
+import { AppError, ForbiddenError, NotFoundError } from '../../lib/errors.js';
 import {
   createLinkToken,
   createPodLinkToken,
   disconnectTelegramChat,
-} from './telegram.bot.ts';
+} from './telegram.bot.js';
 
 class TelegramDisabledError extends AppError {
   constructor() {

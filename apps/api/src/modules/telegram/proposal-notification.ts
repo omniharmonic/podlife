@@ -7,17 +7,17 @@
  * with an inline Accept-All / Open-in-App keyboard.
  */
 import { and, eq, inArray } from 'drizzle-orm';
-import { db } from '../../db/index.ts';
+import { db } from '../../db/index.js';
 import {
   partnerships,
   persons,
   schedulingCycles,
   timeBlocks,
   timeBlockParticipants,
-} from '../../db/schema.ts';
-import { logger } from '../../lib/logger.ts';
-import { sendDmToPerson, type InlineKeyboard } from '../../services/notification/telegram.adapter.ts';
-import { config } from '../../lib/config.ts';
+} from '../../db/schema.js';
+import { logger } from '../../lib/logger.js';
+import { sendDmToPerson, type InlineKeyboard } from '../../services/notification/telegram.adapter.js';
+import { config } from '../../lib/config.js';
 
 interface ProposalLine {
   blockId: string;

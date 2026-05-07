@@ -4,8 +4,8 @@
  * aggregator into busy windows internally.)
  */
 import { and, eq, gte, lte, or } from 'drizzle-orm';
-import { db } from '../../db/index.ts';
-import { manualAvailability } from '../../db/schema.ts';
+import { db } from '../../db/index.js';
+import { manualAvailability } from '../../db/schema.js';
 
 export interface AvailabilityWindow {
   start: Date;

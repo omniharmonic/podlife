@@ -17,13 +17,13 @@
  * message, not a privacy leak.
  */
 import { and, eq, inArray, isNotNull, or } from 'drizzle-orm';
-import { db } from '../../db/index.ts';
+import { db } from '../../db/index.js';
 import {
   partnerships,
   podMembers,
   pods,
   persons,
-} from '../../db/schema.ts';
+} from '../../db/schema.js';
 
 export interface PrivacyValidation {
   ok: boolean;

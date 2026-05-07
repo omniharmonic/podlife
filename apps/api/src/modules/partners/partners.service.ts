@@ -13,23 +13,23 @@ import {
   type PartnerSummary,
   type PartnershipPreference as PartnershipPreferenceDto,
 } from '@pod-life/shared';
-import { db } from '../../db/index.ts';
+import { db } from '../../db/index.js';
 import {
   auditLog,
   partnerInvites,
   partnershipPreferences,
   partnerships,
   persons,
-} from '../../db/schema.ts';
+} from '../../db/schema.js';
 import {
   ConflictError,
   ForbiddenError,
   NotFoundError,
   ValidationError,
-} from '../../lib/errors.ts';
-import { config } from '../../lib/config.ts';
-import { send as notify } from '../../services/notification/notification.service.ts';
-import { logger } from '../../lib/logger.ts';
+} from '../../lib/errors.js';
+import { config } from '../../lib/config.js';
+import { send as notify } from '../../services/notification/notification.service.js';
+import { logger } from '../../lib/logger.js';
 
 /** UUIDs as strings sort lexically and respect the CHECK person_a_id < person_b_id. */
 export function canonicalPair(a: string, b: string): { aId: string; bId: string } {

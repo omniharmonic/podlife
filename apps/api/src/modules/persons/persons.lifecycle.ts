@@ -9,7 +9,7 @@
  * Calendar OAuth tokens are stored encrypted in Postgres and are deleted via
  * the calendar_connections cascade on persons.id; no plaintext copy exists.
  */
-import { redis, redisFor } from '../../lib/redis.ts';
+import { redis, redisFor } from '../../lib/redis.js';
 
 const availKey = redisFor('avail');
 

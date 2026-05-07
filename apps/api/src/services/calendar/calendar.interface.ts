@@ -4,7 +4,7 @@
  * All providers receive the encrypted CalendarConnectionRow; they handle
  * decrypting and refreshing tokens internally.
  */
-import type { CalendarConnectionRow } from '../../db/schema.ts';
+import type { CalendarConnectionRow } from '../../db/schema.js';
 
 export interface FreeBusyWindow {
   start: Date;

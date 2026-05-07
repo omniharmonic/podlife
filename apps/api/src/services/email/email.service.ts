@@ -61,6 +61,12 @@ function logDevBanner(msg: EmailMessage): void {
 }
 
 export async function sendEmail(msg: EmailMessage): Promise<void> {
+  // In tests, never call out to a real provider — magic-link tests assert
+  // the banner output and would otherwise hit live Resend/SMTP.
+  if (config.isTest) {
+    logDevBanner(msg);
+    return;
+  }
   const resend = getResendClient();
   if (resend) {
     // Resend's CreateEmailOptions requires exactly one of html | text | react |

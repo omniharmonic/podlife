@@ -7,10 +7,10 @@
  */
 import { Hono } from 'hono';
 import { webhookCallback } from 'grammy';
-import { config } from '../../lib/config.ts';
-import { logger } from '../../lib/logger.ts';
-import { getBot } from './telegram.bot.ts';
-import { NotFoundError } from '../../lib/errors.ts';
+import { config } from '../../lib/config.js';
+import { logger } from '../../lib/logger.js';
+import { getBot } from './telegram.bot.js';
+import { NotFoundError } from '../../lib/errors.js';
 
 export const telegramWebhookRoutes = new Hono();
 

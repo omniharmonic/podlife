@@ -7,12 +7,12 @@
  *  - Listed newest-first (the UI shows them as a feed of "thoughts").
  */
 import { and, desc, eq } from 'drizzle-orm';
-import { db } from '../../db/index.ts';
-import { podNotes, persons } from '../../db/schema.ts';
-import { ForbiddenError, NotFoundError } from '../../lib/errors.ts';
-import { notifyOtherPodMembers } from './chat.service.ts';
-import { config } from '../../lib/config.ts';
-import { logger } from '../../lib/logger.ts';
+import { db } from '../../db/index.js';
+import { podNotes, persons } from '../../db/schema.js';
+import { ForbiddenError, NotFoundError } from '../../lib/errors.js';
+import { notifyOtherPodMembers } from './chat.service.js';
+import { config } from '../../lib/config.js';
+import { logger } from '../../lib/logger.js';
 
 export interface NoteDto {
   id: string;

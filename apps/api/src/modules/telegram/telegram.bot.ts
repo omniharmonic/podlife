@@ -11,10 +11,10 @@
  */
 import { Bot, InlineKeyboard, type Context } from 'grammy';
 import { and, eq, gte, inArray, isNotNull, lte } from 'drizzle-orm';
-import { config } from '../../lib/config.ts';
-import { logger } from '../../lib/logger.ts';
-import { redis, redisFor } from '../../lib/redis.ts';
-import { db } from '../../db/index.ts';
+import { config } from '../../lib/config.js';
+import { logger } from '../../lib/logger.js';
+import { redis, redisFor } from '../../lib/redis.js';
+import { db } from '../../db/index.js';
 import {
   auditLog,
   partnerships,
@@ -24,7 +24,7 @@ import {
   schedulingCycles,
   timeBlocks,
   timeBlockParticipants,
-} from '../../db/schema.ts';
+} from '../../db/schema.js';
 
 const LINK_TOKEN_KEY = redisFor('tg-link');
 const POD_LINK_TOKEN_KEY = redisFor('tg-pod-link');

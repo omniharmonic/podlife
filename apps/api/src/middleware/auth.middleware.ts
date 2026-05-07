@@ -20,7 +20,7 @@
 import type { MiddlewareHandler } from 'hono';
 import { AuthError } from '../lib/errors.js';
 import type { PersonRow } from '../db/schema.js';
-import { resolveSession } from '../modules/auth/magic-link.service.ts';
+import { resolveSession } from '../modules/auth/magic-link.service.js';
 
 export interface AuthVars {
   person: PersonRow;

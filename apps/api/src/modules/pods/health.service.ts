@@ -15,7 +15,7 @@
  *   4. Generate warm, factual `observations` strings.
  */
 import { and, desc, eq, inArray } from 'drizzle-orm';
-import { db } from '../../db/index.ts';
+import { db } from '../../db/index.js';
 import {
   partnerships,
   partnershipPreferences,
@@ -24,7 +24,7 @@ import {
   timeBlocks,
   timeBlockParticipants,
   persons,
-} from '../../db/schema.ts';
+} from '../../db/schema.js';
 
 export interface PodHealthMember {
   personId: string;

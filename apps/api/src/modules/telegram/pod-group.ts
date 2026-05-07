@@ -6,7 +6,7 @@
  * The privacy filter (group) re-validates this at send time.
  */
 import { and, eq, inArray, isNotNull } from 'drizzle-orm';
-import { db } from '../../db/index.ts';
+import { db } from '../../db/index.js';
 import {
   pods,
   podMembers,
@@ -14,9 +14,9 @@ import {
   schedulingCycles,
   timeBlocks,
   timeBlockParticipants,
-} from '../../db/schema.ts';
-import { notifyPodGroup } from '../../services/notification/telegram.adapter.ts';
-import { logger } from '../../lib/logger.ts';
+} from '../../db/schema.js';
+import { notifyPodGroup } from '../../services/notification/telegram.adapter.js';
+import { logger } from '../../lib/logger.js';
 
 export async function sendLockedScheduleSummary(podId: string, cycleId: string): Promise<void> {
   const podRows = await db.select().from(pods).where(eq(pods.id, podId)).limit(1);

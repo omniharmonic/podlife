@@ -10,7 +10,7 @@ import type {
   CycleStatus,
   PodRole,
   NotificationChannel,
-} from './enums';
+} from './enums.js';
 
 export interface Person {
   id: string;

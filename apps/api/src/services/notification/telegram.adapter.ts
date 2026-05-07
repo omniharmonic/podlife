@@ -8,15 +8,15 @@
  * Tests can swap out the underlying transport via setTelegramTransport().
  */
 import { eq } from 'drizzle-orm';
-import { db } from '../../db/index.ts';
-import { auditLog, persons, pods } from '../../db/schema.ts';
-import { logger } from '../../lib/logger.ts';
-import { config } from '../../lib/config.ts';
+import { db } from '../../db/index.js';
+import { auditLog, persons, pods } from '../../db/schema.js';
+import { logger } from '../../lib/logger.js';
+import { config } from '../../lib/config.js';
 import {
   dmPrivacyFilter,
   groupPrivacyFilter,
-} from '../../modules/telegram/privacy.ts';
-import { getBot } from '../../modules/telegram/telegram.bot.ts';
+} from '../../modules/telegram/privacy.js';
+import { getBot } from '../../modules/telegram/telegram.bot.js';
 
 // ─── Telegram message API surface ──────────────────────────────────────
 

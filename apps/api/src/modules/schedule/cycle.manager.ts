@@ -24,9 +24,9 @@ import type {
   OptimizerSubgroupPref,
   SubgroupConfig,
 } from '@pod-life/shared';
-import { config } from '../../lib/config.ts';
-import { logger } from '../../lib/logger.ts';
-import { db } from '../../db/index.ts';
+import { config } from '../../lib/config.js';
+import { logger } from '../../lib/logger.js';
+import { db } from '../../db/index.js';
 import {
   eventTypes as eventTypesTable,
   partnerships,
@@ -38,12 +38,12 @@ import {
   timeBlocks,
   timeBlockParticipants,
   persons,
-} from '../../db/schema.ts';
-import { getPersonFreeWindows } from '../../services/calendar/calendar.aggregator.ts';
-import { send as notify } from '../../services/notification/notification.service.ts';
-import { sendProposalNotifications } from '../telegram/proposal-notification.ts';
-import { queue } from '../../jobs/queue.ts';
-import { solve as solveInline } from '../../services/optimizer/index.ts';
+} from '../../db/schema.js';
+import { getPersonFreeWindows } from '../../services/calendar/calendar.aggregator.js';
+import { send as notify } from '../../services/notification/notification.service.js';
+import { sendProposalNotifications } from '../telegram/proposal-notification.js';
+import { queue } from '../../jobs/queue.js';
+import { solve as solveInline } from '../../services/optimizer/index.js';
 import { createHash } from 'node:crypto';
 
 export interface TriggerInput {

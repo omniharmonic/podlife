@@ -7,9 +7,9 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { requirePodMember } from '../../middleware/pod-access.middleware.ts';
-import { deleteMessage, listMessages, postMessage } from './chat.service.ts';
-import { ValidationError } from '../../lib/errors.ts';
+import { requirePodMember } from '../../middleware/pod-access.middleware.js';
+import { deleteMessage, listMessages, postMessage } from './chat.service.js';
+import { ValidationError } from '../../lib/errors.js';
 
 export const chatRoutes = new Hono();
 

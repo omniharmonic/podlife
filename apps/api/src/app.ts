@@ -14,28 +14,28 @@ import { errorHandler } from './middleware/error.middleware.js';
 import { rateLimit } from './middleware/rate-limit.middleware.js';
 import { requireAuth } from './middleware/auth.middleware.js';
 import { privacyScrub } from './middleware/privacy.middleware.js';
-import { authRoutes } from './modules/auth/auth.routes.ts';
-import { personsRoutes } from './modules/persons/persons.routes.ts';
-import { notificationsRoutes } from './modules/persons/notifications.routes.ts';
-import { partnersRoutes } from './modules/partners/partners.routes.ts';
-import { podsRoutes } from './modules/pods/pods.routes.ts';
-import { chatRoutes } from './modules/pods/chat.routes.ts';
-import { notesRoutes } from './modules/pods/notes.routes.ts';
-import { healthRoutes as podHealthRoutes } from './modules/pods/health.routes.ts';
-import { calendarRoutes, calendarOAuthRoutes } from './modules/calendar/calendar.routes.ts';
-import { scheduleRoutes } from './modules/schedule/schedule.routes.ts';
+import { authRoutes } from './modules/auth/auth.routes.js';
+import { personsRoutes } from './modules/persons/persons.routes.js';
+import { notificationsRoutes } from './modules/persons/notifications.routes.js';
+import { partnersRoutes } from './modules/partners/partners.routes.js';
+import { podsRoutes } from './modules/pods/pods.routes.js';
+import { chatRoutes } from './modules/pods/chat.routes.js';
+import { notesRoutes } from './modules/pods/notes.routes.js';
+import { healthRoutes as podHealthRoutes } from './modules/pods/health.routes.js';
+import { calendarRoutes, calendarOAuthRoutes } from './modules/calendar/calendar.routes.js';
+import { scheduleRoutes } from './modules/schedule/schedule.routes.js';
 import {
   aiPartnerRoutes,
   aiScheduleRoutes,
   featuresRoutes,
-} from './modules/ai/ai.routes.ts';
+} from './modules/ai/ai.routes.js';
 import {
   telegramLinkRoutes,
   telegramPodLinkRoutes,
-} from './modules/telegram/link.routes.ts';
-import { telegramWebhookRoutes } from './modules/telegram/telegram.webhook.ts';
-import { internalRoutes } from './modules/internal/internal.routes.ts';
-import { cronRoutes } from './modules/internal/cron.routes.ts';
+} from './modules/telegram/link.routes.js';
+import { telegramWebhookRoutes } from './modules/telegram/telegram.webhook.js';
+import { internalRoutes } from './modules/internal/internal.routes.js';
+import { cronRoutes } from './modules/internal/cron.routes.js';
 import { logger } from './lib/logger.js';
 
 export function buildApp(): Hono {

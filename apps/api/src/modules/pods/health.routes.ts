@@ -2,8 +2,8 @@
  * Pod health routes: GET /api/pods/:id/health.
  */
 import { Hono } from 'hono';
-import { requirePodMember } from '../../middleware/pod-access.middleware.ts';
-import { getPodHealth } from './health.service.ts';
+import { requirePodMember } from '../../middleware/pod-access.middleware.js';
+import { getPodHealth } from './health.service.js';
 
 export const healthRoutes = new Hono();
 

@@ -19,7 +19,7 @@ import { config } from '../../lib/config.js';
 import { db } from '../../db/index.js';
 import { auditLog, magicLinks, persons, sessions } from '../../db/schema.js';
 import type { PersonRow } from '../../db/schema.js';
-import { sendEmail } from '../../services/email/email.service.ts';
+import { sendEmail } from '../../services/email/email.service.js';
 
 export interface MagicLinkRequestResult {
   /** Always true to prevent email enumeration; magic link is sent if email is valid. */

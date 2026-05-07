@@ -12,12 +12,12 @@
  */
 import { eq } from 'drizzle-orm';
 import type { BlockedWindow } from '@pod-life/shared';
-import { db } from '../../db/index.ts';
-import { calendarConnections, persons } from '../../db/schema.ts';
-import { redis, redisFor } from '../../lib/redis.ts';
-import { logger } from '../../lib/logger.ts';
-import { googleProvider } from './google.provider.ts';
-import { listManualWindows } from './manual.provider.ts';
+import { db } from '../../db/index.js';
+import { calendarConnections, persons } from '../../db/schema.js';
+import { redis, redisFor } from '../../lib/redis.js';
+import { logger } from '../../lib/logger.js';
+import { googleProvider } from './google.provider.js';
+import { listManualWindows } from './manual.provider.js';
 
 export interface FreeWindow {
   start: Date;

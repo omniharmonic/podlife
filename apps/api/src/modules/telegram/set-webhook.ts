@@ -11,7 +11,7 @@
  *
  * No-op when any of the above are unset.
  */
-import { config } from '../../lib/config.ts';
+import { config } from '../../lib/config.js';
 
 async function main(): Promise<void> {
   if (!config.telegram.enabled) {

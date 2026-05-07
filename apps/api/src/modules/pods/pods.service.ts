@@ -10,19 +10,19 @@ import {
   type PodPreference as PodPrefDto,
   type SubgroupConfig,
 } from '@pod-life/shared';
-import { db } from '../../db/index.ts';
+import { db } from '../../db/index.js';
 import {
   podMembers,
   podPreferences,
   pods,
   persons,
-} from '../../db/schema.ts';
+} from '../../db/schema.js';
 import {
   ConflictError,
   ForbiddenError,
   NotFoundError,
-} from '../../lib/errors.ts';
-import { config } from '../../lib/config.ts';
+} from '../../lib/errors.js';
+import { config } from '../../lib/config.js';
 
 export interface CreatePodInput {
   name: string;
@@ -138,7 +138,7 @@ export async function createPodInvite(
   const token = nanoid(32);
   const expiresAt = new Date(Date.now() + POD_INVITE_TTL_DAYS * 24 * 60 * 60 * 1000);
   // Use Redis to keep it simple — no schema change needed.
-  const { redis, redisFor } = await import('../../lib/redis.ts');
+  const { redis, redisFor } = await import('../../lib/redis.js');
   const key = redisFor('pod-invite')(token);
   await redis.set(
     key,
@@ -153,7 +153,7 @@ export async function joinPodWithToken(
   personId: string,
   token: string,
 ): Promise<{ podId: string }> {
-  const { redis, redisFor } = await import('../../lib/redis.ts');
+  const { redis, redisFor } = await import('../../lib/redis.js');
   const key = redisFor('pod-invite')(token);
   const raw = await redis.get(key);
   if (!raw) throw new NotFoundError('Invite not found or expired');

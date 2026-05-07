@@ -6,19 +6,19 @@ import {
   respondToProposalSchema,
   runCycleSchema,
 } from '@pod-life/shared';
-import { db } from '../../db/index.ts';
+import { db } from '../../db/index.js';
 import {
   auditLog,
   persons,
   schedulingCycles,
   timeBlockParticipants,
   timeBlocks,
-} from '../../db/schema.ts';
-import { ForbiddenError, NotFoundError } from '../../lib/errors.ts';
-import { processCycleJob, triggerCycle } from './cycle.manager.ts';
-import { send as notify } from '../../services/notification/notification.service.ts';
-import { config } from '../../lib/config.ts';
-import { logger } from '../../lib/logger.ts';
+} from '../../db/schema.js';
+import { ForbiddenError, NotFoundError } from '../../lib/errors.js';
+import { processCycleJob, triggerCycle } from './cycle.manager.js';
+import { send as notify } from '../../services/notification/notification.service.js';
+import { config } from '../../lib/config.js';
+import { logger } from '../../lib/logger.js';
 
 export const scheduleRoutes = new Hono();
 

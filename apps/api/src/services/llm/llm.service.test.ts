@@ -4,8 +4,8 @@
  * tests/ai.test.ts.
  */
 import { describe, expect, it } from 'vitest';
-import { LlmService } from './llm.service.ts';
-import { LlmUnavailableError } from './llm.errors.ts';
+import { LlmService } from './llm.service.js';
+import { LlmUnavailableError } from './llm.errors.js';
 
 describe('LlmService', () => {
   it('reports enabled=false when no API key', () => {

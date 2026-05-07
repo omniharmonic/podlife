@@ -9,9 +9,9 @@
  */
 import type { MiddlewareHandler } from 'hono';
 import { and, eq, isNotNull } from 'drizzle-orm';
-import { ForbiddenError, NotFoundError } from '../lib/errors.ts';
-import { db } from '../db/index.ts';
-import { podMembers } from '../db/schema.ts';
+import { ForbiddenError, NotFoundError } from '../lib/errors.js';
+import { db } from '../db/index.js';
+import { podMembers } from '../db/schema.js';
 
 export interface PodAccessOptions {
   role?: 'admin' | 'member';

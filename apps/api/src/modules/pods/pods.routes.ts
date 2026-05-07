@@ -15,8 +15,8 @@ import {
   listPodsForPerson,
   updatePod,
   updatePodPrefs,
-} from './pods.service.ts';
-import { requirePodMember } from '../../middleware/pod-access.middleware.ts';
+} from './pods.service.js';
+import { requirePodMember } from '../../middleware/pod-access.middleware.js';
 
 export const podsRoutes = new Hono();
 

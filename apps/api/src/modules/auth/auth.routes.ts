@@ -7,8 +7,8 @@ import {
   requestMagicLinkSchema,
   verifyMagicLinkSchema,
 } from '@pod-life/shared';
-import { logout, requestMagicLink, verifyMagicLink } from './magic-link.service.ts';
-import { toPersonDto } from '../persons/persons.dto.ts';
+import { logout, requestMagicLink, verifyMagicLink } from './magic-link.service.js';
+import { toPersonDto } from '../persons/persons.dto.js';
 
 export const authRoutes = new Hono();
 

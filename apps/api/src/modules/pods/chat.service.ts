@@ -6,17 +6,17 @@
  * NULL (account deleted); the read API surfaces "Deleted user" in that case.
  */
 import { and, desc, eq, lt, ne } from 'drizzle-orm';
-import { db } from '../../db/index.ts';
+import { db } from '../../db/index.js';
 import {
   podChatMessages,
   podMembers,
   persons,
   pods,
-} from '../../db/schema.ts';
-import { ForbiddenError, NotFoundError } from '../../lib/errors.ts';
-import { send as notify } from '../../services/notification/notification.service.ts';
-import { config } from '../../lib/config.ts';
-import { logger } from '../../lib/logger.ts';
+} from '../../db/schema.js';
+import { ForbiddenError, NotFoundError } from '../../lib/errors.js';
+import { send as notify } from '../../services/notification/notification.service.js';
+import { config } from '../../lib/config.js';
+import { logger } from '../../lib/logger.js';
 
 export interface ChatMessageDto {
   id: string;

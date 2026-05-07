@@ -3,22 +3,22 @@ import { zValidator } from '@hono/zod-validator';
 import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { setManualAvailabilitySchema } from '@pod-life/shared';
-import { db } from '../../db/index.ts';
-import { calendarConnections } from '../../db/schema.ts';
-import { redis, redisFor } from '../../lib/redis.ts';
-import { config } from '../../lib/config.ts';
-import { AppError, AuthError, NotFoundError } from '../../lib/errors.ts';
+import { db } from '../../db/index.js';
+import { calendarConnections } from '../../db/schema.js';
+import { redis, redisFor } from '../../lib/redis.js';
+import { config } from '../../lib/config.js';
+import { AppError, AuthError, NotFoundError } from '../../lib/errors.js';
 import {
   exchangeCode,
   getAuthUrl,
   persistConnection,
-} from '../../services/calendar/google.provider.ts';
+} from '../../services/calendar/google.provider.js';
 import {
   getPersonFreeWindows,
   invalidatePersonAvailabilityCache,
-} from '../../services/calendar/calendar.aggregator.ts';
-import { setManualWindows } from '../../services/calendar/manual.provider.ts';
-import { resolveSession } from '../auth/magic-link.service.ts';
+} from '../../services/calendar/calendar.aggregator.js';
+import { setManualWindows } from '../../services/calendar/manual.provider.js';
+import { resolveSession } from '../auth/magic-link.service.js';
 
 // Authenticated /api/me/* routes ------------------------------------
 export const calendarRoutes = new Hono();

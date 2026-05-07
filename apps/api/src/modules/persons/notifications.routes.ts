@@ -6,9 +6,9 @@
  */
 import { Hono } from 'hono';
 import { and, desc, eq, isNull } from 'drizzle-orm';
-import { db } from '../../db/index.ts';
-import { notifications } from '../../db/schema.ts';
-import { NotFoundError } from '../../lib/errors.ts';
+import { db } from '../../db/index.js';
+import { notifications } from '../../db/schema.js';
+import { NotFoundError } from '../../lib/errors.js';
 
 export const notificationsRoutes = new Hono();
 
