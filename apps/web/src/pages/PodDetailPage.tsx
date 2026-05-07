@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { parseISO, isSameDay, formatDistanceToNow } from 'date-fns';
 import type { SchedulingCadence } from '@pod-life/shared';
-import { usePod, useUpdatePod } from '@/hooks/usePods';
+import { usePod, useUpdatePod, usePodsList } from '@/hooks/usePods';
 import { useProposals } from '@/hooks/useSchedule';
 import {
   usePodHealth,
@@ -44,6 +44,8 @@ export function PodDetailPage() {
   const { id = '' } = useParams<{ id: string }>();
   const { person } = useAuth();
   const pod = usePod(id);
+  const podsList = usePodsList();
+  const onlyPod = (podsList.data?.length ?? 0) === 1;
   const updatePod = useUpdatePod(id);
   const proposals = useProposals();
   const health = usePodHealth(id);
@@ -87,11 +89,16 @@ export function PodDetailPage() {
       transition={{ duration: 0.4 }}
       className="px-5 sm:px-8 py-6 sm:py-8 flex flex-col gap-8"
     >
+      {/*
+       * The "back" affordance only makes sense when there's somewhere to
+       * go back TO. With a single pod, /pods is just a list of one — so
+       * route folks to Home instead, where they came from.
+       */}
       <Link
-        to="/pods"
+        to={onlyPod ? '/home' : '/pods'}
         className="text-xs uppercase tracking-[0.16em] text-ink-500 hover:text-ink-800 inline-flex items-center gap-1 font-medium"
       >
-        ← All pods
+        {onlyPod ? '← Home' : '← All pods'}
       </Link>
 
       {/* Header: pod identity + member avatars */}

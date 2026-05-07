@@ -170,11 +170,13 @@ export function SettingsPage() {
       <Section title="Profile">
         <form onSubmit={saveProfile} className="flex flex-col gap-6">
           <div className="flex items-center gap-5">
-            <Avatar
-              name={displayName || person?.displayName || '?'}
-              src={avatarUrl.trim() || undefined}
-              size={88}
-              className="ring-2 ring-cream shadow-paper"
+            <AvatarUploader
+              currentUrl={avatarUrl}
+              displayName={displayName || person?.displayName || '?'}
+              onUploaded={(url) => {
+                setAvatarUrl(url);
+                if (person) setPerson({ ...person, avatarUrl: url });
+              }}
             />
             <div className="flex-1 min-w-0">
               <p className="font-display text-ink-800 text-2xl leading-tight">
@@ -202,15 +204,6 @@ export function SettingsPage() {
                 </option>
               ))}
             </Select>
-            <div className="sm:col-span-2">
-              <Input
-                label="Profile picture URL"
-                placeholder="https://…"
-                hint="Paste a public image URL (e.g., from your social profile). Leave blank for an initials avatar."
-                value={avatarUrl}
-                onChange={(e) => setAvatarUrl(e.currentTarget.value)}
-              />
-            </div>
           </div>
 
           <div className="flex justify-end">
@@ -364,6 +357,96 @@ function Section({ title, children }: SectionProps) {
       <h2 className="font-display text-ink-800 text-2xl">{title}</h2>
       {children}
     </section>
+  );
+}
+
+interface AvatarUploaderProps {
+  currentUrl: string;
+  displayName: string;
+  onUploaded: (url: string) => void;
+}
+
+/**
+ * Hover-to-replace avatar tile. The visible Avatar is the click target —
+ * a hidden file input takes the upload. We immediately preview the chosen
+ * file via object URL so the UI feels instant, then swap to the Blob URL
+ * the server returns once the upload lands.
+ */
+function AvatarUploader({ currentUrl, displayName, onUploaded }: AvatarUploaderProps) {
+  const showToast = useUiStore((s) => s.showToast);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const inputId = 'avatar-file-input';
+
+  async function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.currentTarget.files?.[0];
+    e.currentTarget.value = ''; // allow re-selecting the same file later
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      showToast('That file isn’t an image — try a JPG or PNG?', 'error');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('That image is over 5 MB — could you crop or compress it?', 'error');
+      return;
+    }
+    const localUrl = URL.createObjectURL(file);
+    setPreviewUrl(localUrl);
+    setUploading(true);
+    try {
+      const updated = await meApi.uploadAvatar(file);
+      onUploaded(updated.avatarUrl ?? '');
+      showToast('Profile picture saved', 'success');
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : "Couldn't quite upload that — try again?",
+        'error',
+      );
+    } finally {
+      setUploading(false);
+      // Keep the local preview until the parent re-renders with the new URL.
+      // Revoking the object URL too early flashes the old avatar.
+      setTimeout(() => {
+        URL.revokeObjectURL(localUrl);
+        setPreviewUrl(null);
+      }, 1000);
+    }
+  }
+
+  const shownUrl = previewUrl || currentUrl.trim() || undefined;
+
+  return (
+    <label
+      htmlFor={inputId}
+      className="relative cursor-pointer group focus-within:ring-2 focus-within:ring-terracotta-400 rounded-full"
+      title="Click to choose a new picture"
+    >
+      <Avatar
+        name={displayName}
+        src={shownUrl}
+        size={88}
+        className="ring-2 ring-cream shadow-paper"
+      />
+      <span
+        aria-hidden="true"
+        className={
+          'absolute inset-0 rounded-full flex items-center justify-center text-cream text-[11px] uppercase tracking-[0.16em] font-medium ' +
+          (uploading
+            ? 'bg-ink-800/70'
+            : 'bg-ink-800/0 group-hover:bg-ink-800/55 transition-colors')
+        }
+      >
+        {uploading ? 'Uploading…' : <span className="opacity-0 group-hover:opacity-100">Replace</span>}
+      </span>
+      <input
+        id={inputId}
+        type="file"
+        accept="image/*"
+        className="sr-only"
+        onChange={onFileChange}
+        disabled={uploading}
+      />
+    </label>
   );
 }
 
