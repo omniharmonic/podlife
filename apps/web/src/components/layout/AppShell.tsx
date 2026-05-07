@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { usePodsList } from '@/hooks/usePods';
 import { Avatar } from '@/components/ui/Avatar';
 import { Logo } from '@/components/ui/Logo';
 import { auth as authApi } from '@/lib/api';
@@ -12,20 +13,22 @@ interface AppShellProps {
   children: ReactNode;
 }
 
-const NAV = [
-  { to: '/home', label: 'Home', icon: HomeIcon, end: true },
-  { to: '/calendar', label: 'Calendar', icon: CalendarIcon },
-  { to: '/partners', label: 'Partners', icon: HeartIcon },
-  { to: '/pods', label: 'Pods', icon: PodIcon },
-  { to: '/settings', label: 'Settings', icon: GearIcon },
-];
-
 export function AppShell({ children }: AppShellProps) {
   const { person, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
   const toast = useUiStore((s) => s.toast);
   const dismissToast = useUiStore((s) => s.dismissToast);
+  const podsList = usePodsList();
+  // Adaptive nav label: singular when the user has exactly one pod.
+  const podCount = podsList.data?.length ?? 0;
+  const nav = [
+    { to: '/home', label: 'Home', icon: HomeIcon, end: true },
+    { to: '/calendar', label: 'Calendar', icon: CalendarIcon },
+    { to: '/partners', label: 'Partners', icon: HeartIcon },
+    { to: '/pods', label: podCount === 1 ? 'Pod' : 'Pods', icon: PodIcon },
+    { to: '/settings', label: 'Settings', icon: GearIcon },
+  ];
 
   const handleSignOut = async () => {
     try {
@@ -111,7 +114,7 @@ export function AppShell({ children }: AppShellProps) {
       {/* Bottom navigation */}
       <nav className="fixed bottom-0 left-0 right-0 z-30 bg-cream/95 backdrop-blur border-t border-ink-100/60 pb-safe">
         <div className="max-w-4xl mx-auto px-2 grid grid-cols-5">
-          {NAV.map(({ to, label, icon: Icon, end }) => (
+          {nav.map(({ to, label, icon: Icon, end }) => (
             <NavLink
               key={to}
               to={to}

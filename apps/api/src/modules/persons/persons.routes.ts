@@ -1,10 +1,13 @@
 /**
- * Persons routes: GET/PATCH/DELETE /api/me, GET /api/me/export.
+ * Persons routes: GET/PATCH/DELETE /api/me, GET /api/me/export,
+ * POST /api/me/avatar (file upload).
  */
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { eq, or } from 'drizzle-orm';
+import { put } from '@vercel/blob';
 import { updatePersonSchema } from '@pod-life/shared';
+import { AppError } from '../../lib/errors.js';
 import { db } from '../../db/index.js';
 import {
   auditLog,
@@ -65,6 +68,55 @@ personsRoutes.patch('/me', zValidator('json', updatePersonSchema), async (c) => 
     resourceType: 'person',
     resourceId: me.id,
     metadata: { fields: Object.keys(updates) },
+  });
+
+  return c.json({ person: toPersonDto(updated) });
+});
+
+/**
+ * Upload an avatar image to Vercel Blob and store the public URL on the
+ * person row. Returns the updated person.
+ *
+ * Accepts multipart/form-data with a single `file` field. The file is
+ * served from Vercel's Blob CDN (public access). Old avatars stay in the
+ * blob store as orphans — fine for v1; can sweep on a cron later.
+ */
+personsRoutes.post('/me/avatar', async (c) => {
+  const me = c.get('person');
+  const form = await c.req.formData();
+  const file = form.get('file');
+  if (!(file instanceof File)) {
+    throw new AppError('BAD_REQUEST', 'Expected multipart form field "file"', 400);
+  }
+  if (!file.type.startsWith('image/')) {
+    throw new AppError('BAD_REQUEST', 'Only image files are accepted', 400);
+  }
+  // 5MB cap — generous for avatars but blocks runaway uploads.
+  if (file.size > 5 * 1024 * 1024) {
+    throw new AppError('PAYLOAD_TOO_LARGE', 'Avatar must be 5 MB or smaller', 413);
+  }
+
+  // Stable per-person path so re-uploads land at a predictable prefix.
+  const ext = (file.name.split('.').pop() || 'png').toLowerCase().slice(0, 5);
+  const blob = await put(`avatars/${me.id}/${Date.now()}.${ext}`, file, {
+    access: 'public',
+    contentType: file.type,
+    addRandomSuffix: false,
+  });
+
+  const [updated] = await db
+    .update(persons)
+    .set({ avatarUrl: blob.url, updatedAt: new Date() })
+    .where(eq(persons.id, me.id))
+    .returning();
+  if (!updated) throw new NotFoundError('Person not found');
+
+  await db.insert(auditLog).values({
+    personId: me.id,
+    action: 'avatar.update',
+    resourceType: 'person',
+    resourceId: me.id,
+    metadata: { url: blob.url, size: file.size, contentType: file.type },
   });
 
   return c.json({ person: toPersonDto(updated) });

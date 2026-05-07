@@ -163,6 +163,33 @@ export const me = {
     const r = await request<{ person: Person } | Person>(`/api/me`);
     return 'person' in (r as object) ? (r as { person: Person }).person : (r as Person);
   },
+  /**
+   * Upload an avatar image. The server pushes it to Vercel Blob and stores
+   * the public URL on the person row. Bypasses our `request()` JSON helper
+   * because the body is multipart/form-data.
+   */
+  async uploadAvatar(file: File): Promise<Person> {
+    const form = new FormData();
+    form.set('file', file);
+    const tok = getSessionToken();
+    const r = await fetch('/api/me/avatar', {
+      method: 'POST',
+      headers: tok ? { Authorization: `Bearer ${tok}` } : {},
+      body: form,
+    });
+    if (!r.ok) {
+      let msg = 'Upload failed';
+      try {
+        const j = await r.json();
+        msg = j?.error?.message ?? msg;
+      } catch {
+        /* ignore */
+      }
+      throw new ApiError(msg, r.status);
+    }
+    const j = (await r.json()) as { person: Person } | Person;
+    return 'person' in (j as object) ? (j as { person: Person }).person : (j as Person);
+  },
   async update(patch: Partial<Person>): Promise<Person> {
     const r = await request<{ person: Person } | Person>(`/api/me`, {
       method: 'PATCH',

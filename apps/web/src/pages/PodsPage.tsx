@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { usePodsList, useCreatePod } from '@/hooks/usePods';
 import { Button } from '@/components/ui/Button';
@@ -12,9 +12,9 @@ import { useUiStore } from '@/stores/ui.store';
 const POD_EMOJIS = ['🏠', '🌳', '🌻', '🪴', '🍃', '🌿', '🌞', '🌙', '✨', '🔥'];
 
 /**
- * If a person belongs to only one pod, "Pods" lands them in it directly.
- * Reading from query state means we wait until the list resolves before
- * deciding whether to redirect (preventing a flash of the list).
+ * Pods list. Always renders the list (no auto-redirect) so the user can
+ * always create another pod or pick between pods. The bottom nav adapts
+ * the label "Pod" / "Pods" based on count.
  */
 export function PodsPage() {
   const list = usePodsList();
@@ -25,22 +25,8 @@ export function PodsPage() {
   const [name, setName] = useState('');
   const [emoji, setEmoji] = useState('🏠');
   const [memberEmails, setMemberEmails] = useState('');
-  // Track whether the user has explicitly chosen to see the list (vs auto-redirect).
-  const [showList, setShowList] = useState(false);
 
-  // If there is exactly one pod and the user hasn't asked to see the list, redirect.
   const pods = list.data ?? [];
-  const shouldAutoRedirect =
-    !list.isLoading && pods.length === 1 && !showList && !open;
-
-  useEffect(() => {
-    // Reset showList if the user navigates away and back with a new pod count.
-    if (pods.length > 1 && showList) setShowList(false);
-  }, [pods.length, showList]);
-
-  if (shouldAutoRedirect) {
-    return <Navigate to={`/pods/${pods[0]!.id}`} replace />;
-  }
 
   async function onCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -75,10 +61,15 @@ export function PodsPage() {
       className="px-5 sm:px-8 py-6 sm:py-8 flex flex-col gap-7"
     >
       <header className="flex items-end justify-between gap-3">
-        <EditorialHeading level={1} eyebrow="Your pods">
-          Pods
+        <EditorialHeading
+          level={1}
+          eyebrow={pods.length === 1 ? 'Your pod' : 'Your pods'}
+        >
+          {pods.length === 1 ? pods[0]!.name : 'Pods'}
         </EditorialHeading>
-        <Button onClick={() => setOpen(true)}>New pod</Button>
+        <Button onClick={() => setOpen(true)}>
+          {pods.length === 0 ? 'New pod' : pods.length === 1 ? 'Add another pod' : 'New pod'}
+        </Button>
       </header>
 
       {list.isLoading ? (
