@@ -56,6 +56,18 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: '/index.html',
+        // Without this denylist, the SW happily catches navigations to
+        // /auth/calendar/google (or any API-routed path) and serves the SPA
+        // shell, which then redirects through React Router to /home —
+        // breaking the OAuth flow. Keep this list aligned with the rewrites
+        // in vercel.json that route to /api/index.
+        navigateFallbackDenylist: [
+          /^\/api\//,
+          /^\/auth\//,
+          /^\/internal\//,
+          /^\/telegram\//,
+          /^\/health$/,
+        ],
         runtimeCaching: [
           {
             urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
