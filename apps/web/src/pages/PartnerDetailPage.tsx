@@ -72,15 +72,15 @@ export function PartnerDetailPage() {
               </h1>
               {stats && (
                 <p className="text-sm text-ink-600 mt-2">
-                  This cycle ·{' '}
+                  This week ·{' '}
                   <span className="text-ink-800 font-medium tabular-nums">
                     {Math.round((stats.hours_scheduled ?? 0) * 10) / 10}h
                   </span>{' '}
-                  scheduled of{' '}
+                  together of{' '}
                   <span className="tabular-nums">
                     {Math.round((stats.hours_wanted ?? 0) * 10) / 10}h
                   </span>{' '}
-                  wanted
+                  hoped for
                 </p>
               )}
             </div>
@@ -112,7 +112,7 @@ export function PartnerDetailPage() {
 
         <aside className="flex flex-col gap-3">
           <h3 className="font-display text-ink-800 text-xl">
-            Time together this cycle
+            Time together this week
           </h3>
           {sharedBlocks.length === 0 ? (
             <Card as="dashed" padding="md">

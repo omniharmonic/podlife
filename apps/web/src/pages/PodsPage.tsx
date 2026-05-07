@@ -114,7 +114,7 @@ export function PodsPage() {
                       {pod.name}
                     </h3>
                     <p className="text-sm text-ink-500 truncate mt-0.5">
-                      {pod.description ?? `${cadenceShort(pod.schedulingCadence)} cycle`}
+                      {pod.description ?? `${cadenceShort(pod.schedulingCadence)} check-ins`}
                     </p>
                   </div>
                   <span

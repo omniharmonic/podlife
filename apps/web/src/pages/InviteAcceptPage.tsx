@@ -68,8 +68,9 @@ export function InviteAcceptPage() {
         </h1>
         <Flourish variant="laurel" className="w-32 h-7 text-ink-300 mx-auto mb-6" />
         <p className="text-ink-600 mb-10 italic leading-relaxed">
-          Someone wants to schedule shared time with you on Pod Life. Accept to
-          set up your preferences together.
+          Someone in your life wants to make time for you. Accept the invitation
+          and you'll each share what kind of time matters with the other —
+          Pod Life takes care of the rest.
         </p>
 
         {accepted ? (

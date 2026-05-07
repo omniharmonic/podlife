@@ -173,29 +173,31 @@ export function OnboardingPage() {
 function WelcomeStep() {
   return (
     <div className="flex flex-col gap-8 text-center">
-      <p className="eyebrow">Vol. I · A first letter</p>
+      <p className="eyebrow">A first letter</p>
       <h1
         className="font-display italic text-ink-800 text-5xl sm:text-6xl leading-[1.05]"
         style={{ fontVariationSettings: "'opsz' 144, 'SOFT' 80, 'wght' 380" }}
       >
-        Welcome to Pod Life
+        You love more than one person.
       </h1>
       <Flourish variant="laurel" className="w-44 h-7 text-ink-300 mx-auto" />
       <div className="text-left flex flex-col gap-5 max-w-xl mx-auto">
         <DropCap>
-          You are not the kind of person who takes love lightly. You have more
-          than one. You want each one held well — given enough time,
-          enough attention, enough rest in between.
+          That's where everything starts. Not with calendars, not with
+          algorithms. It starts with the simple, beautiful, sometimes
+          overwhelming reality that your heart holds more than one
+          person — and you want to show up for all of them.
         </DropCap>
         <p className="text-base text-ink-700 leading-[1.7]">
-          Pod Life is a small instrument for that. You connect a calendar,
-          tell us what you'd love each cycle, and we propose a fair schedule
-          — fair meaning nobody gets the short end, mathematically.
+          Pod Life takes the logistical weight off your shoulders so you
+          can focus on what actually matters: being together. You connect
+          a calendar, tell us what kind of time matters with each person,
+          and we find a plan where everyone gets cared for.
         </p>
         <p className="text-base text-ink-700 leading-[1.7]">
           We won't peek at your event titles. We won't tell anyone what
-          anyone else is doing. The system is built around the idea that
-          relationships need privacy and time, in equal measure.
+          anyone else is doing. Sovereignty and connection — both, fully,
+          held in the same place.
         </p>
       </div>
     </div>
@@ -207,7 +209,7 @@ function CyclesStep() {
     <div className="flex flex-col gap-8">
       <header className="text-center">
         <p className="eyebrow mb-3">An almanac</p>
-        <EditorialHeading level={2}>What is a cycle?</EditorialHeading>
+        <EditorialHeading level={2}>How a check-in works</EditorialHeading>
       </header>
 
       {/* Diagram — 7 day-circles */}
@@ -237,12 +239,13 @@ function CyclesStep() {
 
       <div className="text-center max-w-xl mx-auto flex flex-col gap-4">
         <p className="text-base text-ink-700 leading-[1.8]">
-          A cycle is one round of planning — most pods use a week. Every
-          cycle, you tell us what you'd love and we propose a fair schedule.
+          Every so often (most pods choose weekly), Pod Life checks in with
+          everyone's needs and hopes, looks at the calendars, and suggests
+          a plan where the person with the least gets as much as possible.
         </p>
         <p className="text-sm text-ink-500 italic">
-          You'll review the proposal, accept what works, and ask to reshuffle
-          what doesn't. Then it locks for the cycle.
+          You'll see each suggestion before anything is committed.
+          Accept what works. Ask to reshuffle what doesn't.
         </p>
       </div>
     </div>
@@ -258,13 +261,13 @@ function RestStep({ value, onChange }: RestStepProps) {
   return (
     <div className="flex flex-col gap-8">
       <header className="text-center">
-        <p className="eyebrow mb-3">Solo rest</p>
-        <EditorialHeading level={2}>Your time</EditorialHeading>
+        <p className="eyebrow mb-3">Time of your own</p>
+        <EditorialHeading level={2}>Your rest is sacred</EditorialHeading>
       </header>
       <p className="text-base text-ink-700 leading-[1.7] max-w-xl mx-auto text-center">
-        How many free evenings do you need each week to recharge alone?
-        Two is a healthy default for most people. The optimizer will protect
-        these from getting filled.
+        How many evenings a week do you want to keep for yourself? Two is a
+        gentle default. Whatever you set, Pod Life will always protect it —
+        these aren't leftover hours, they're your hours.
       </p>
       <div className="max-w-md mx-auto w-full">
         <Slider
@@ -293,7 +296,7 @@ function ProfileStep({ displayName, setDisplayName, timezone, setTimezone }: Pro
     <div className="flex flex-col gap-8">
       <header className="text-center">
         <p className="eyebrow mb-3">An honest signature</p>
-        <EditorialHeading level={2}>Who you are</EditorialHeading>
+        <EditorialHeading level={2}>How should we address you?</EditorialHeading>
       </header>
       <div className="grid sm:grid-cols-2 gap-x-10 gap-y-6 max-w-xl mx-auto w-full">
         <Input
@@ -342,12 +345,13 @@ function InviteStep({ inviteUrl, generating, onGenerate }: InviteStepProps) {
     <div className="flex flex-col gap-8">
       <header className="text-center">
         <p className="eyebrow mb-3">A first envelope</p>
-        <EditorialHeading level={2}>Add your first partner</EditorialHeading>
+        <EditorialHeading level={2}>Bring someone along</EditorialHeading>
       </header>
       <p className="text-base text-ink-700 leading-[1.7] max-w-xl mx-auto text-center">
-        Share a private link with a partner. Once they accept, you can both
-        set preferences for time together. (Skip this — you can always do it
-        later from the Partners page.)
+        Send a private link to one of the people you love. When they
+        accept, you can each share what kind of time matters with the
+        other. No hurry — this can wait. You'll find it again on
+        the Partners page whenever you're ready.
       </p>
       <div className="max-w-md mx-auto w-full">
         {inviteUrl ? (
@@ -378,8 +382,9 @@ function DoneStep() {
       </h1>
       <Flourish variant="laurel" className="w-44 h-7 text-ink-300 mx-auto" />
       <p className="text-base text-ink-700 leading-[1.7] max-w-xl mx-auto italic">
-        Now you can add partners, create a pod, and let Pod Life draft a
-        first schedule. Take it slow — there's no hurry.
+        From here, add the people you love, gather them into a pod, and let
+        Pod Life put together a first plan. There's no hurry — this is the
+        kind of thing that's worth taking slowly.
       </p>
     </div>
   );

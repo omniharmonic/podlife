@@ -83,7 +83,7 @@ export function PartnersPage() {
       ) : list.length === 0 ? (
         <EmptyState
           title="No partners yet"
-          description="Invite your partner with a private link. Once they accept, you can both set preferences for time together."
+          description="Send a private link to one of the people you love. When they accept, you can each share what kind of time matters with the other."
           action={<Button onClick={startInvite}>Send your first invite</Button>}
         />
       ) : (

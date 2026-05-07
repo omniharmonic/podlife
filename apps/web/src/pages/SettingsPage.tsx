@@ -162,7 +162,7 @@ export function SettingsPage() {
     >
       <header>
         <EditorialHeading level={1} eyebrow="Settings">
-          Your profile & preferences
+          You and how Pod Life finds time for you
         </EditorialHeading>
       </header>
 
@@ -340,8 +340,8 @@ export function SettingsPage() {
         <Toggle
           checked={privacyMode}
           onChange={setPrivacyMode}
-          label="Privacy mode (scheduling jitter)"
-          description="Adds up to 30 minutes of random shift to your free-window edges each cycle. Trade-off: scheduled times may move slightly between cycles."
+          label="Privacy mode"
+          description="Softens the edges of your free time by up to 30 minutes each check-in, so patterns in your schedule are harder to read from the outside. Trade-off: suggested times may shift slightly week to week."
         />
         <div className="flex justify-end mt-4">
           <Button onClick={() => saveProfile()} loading={savingProfile}>
