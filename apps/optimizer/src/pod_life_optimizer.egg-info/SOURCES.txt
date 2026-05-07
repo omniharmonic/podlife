@@ -1,0 +1,6 @@
+pyproject.toml
+src/pod_life_optimizer.egg-info/PKG-INFO
+src/pod_life_optimizer.egg-info/SOURCES.txt
+src/pod_life_optimizer.egg-info/dependency_links.txt
+src/pod_life_optimizer.egg-info/requires.txt
+src/pod_life_optimizer.egg-info/top_level.txt

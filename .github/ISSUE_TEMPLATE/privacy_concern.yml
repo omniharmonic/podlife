@@ -1,0 +1,62 @@
+name: Privacy concern (NON-EXPLOITABLE)
+description: Report a privacy concern that is NOT a security vulnerability. For exploitable leaks, email benjamin@opencivics.co.
+title: "[privacy]: "
+labels: ["privacy", "high-priority", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        # ⚠️ Stop and read this first
+
+        **If you've found a way to actually access another person's data**
+        (a cross-pod leak, an authorization bypass, a token disclosure, etc.),
+        this is a security vulnerability — **do NOT file a public issue**.
+
+        Email **benjamin@opencivics.co** directly. See [SECURITY.md](../SECURITY.md)
+        for our responsible disclosure policy.
+
+        ---
+
+        Use this template only for **non-exploitable** privacy concerns:
+        confusing data exposure in the UI, missing privacy controls, behaviors
+        that surprise users, or policy/documentation gaps.
+
+  - type: checkboxes
+    id: confirm-non-exploit
+    attributes:
+      label: Confirmation
+      options:
+        - label: This is NOT an exploitable security vulnerability. (If it is, I will close this issue and email benjamin@opencivics.co instead.)
+          required: true
+
+  - type: textarea
+    id: concern
+    attributes:
+      label: What is the privacy concern?
+      description: Describe the behavior, what surprised you, and why it feels wrong.
+    validations:
+      required: true
+
+  - type: textarea
+    id: scenario
+    attributes:
+      label: Concrete scenario
+      description: A realistic example. Use Person A / Pod 1 / Partner B style names — please don't include real personal data.
+      placeholder: |
+        - Person A is in Pod 1 with Partner B and Pod 2 with Partner C.
+        - Person A invites Partner B to Pod 2.
+        - The invite link reveals that Pod 2 contains Partner C's name in the URL preview.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What would feel right?
+      description: How should this behave instead?
+
+  - type: textarea
+    id: severity
+    attributes:
+      label: How serious does this feel to you?
+      placeholder: "On a scale from 'mildly confusing' to 'I'd stop using the app'..."

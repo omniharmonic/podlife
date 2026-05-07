@@ -1,0 +1,37 @@
+[project]
+name = "pod-life-optimizer"
+version = "0.1.0"
+description = "MILP-based scheduling optimizer for polyamorous families"
+authors = [{ name = "Benjamin Life", email = "benjamin@opencivics.co" }]
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115.6",
+  "uvicorn[standard]>=0.34.0",
+  "pydantic>=2.10.4",
+  "highspy>=1.9.0",
+  "numpy>=2.2.1",
+  "python-dateutil>=2.9.0",
+  "pytz>=2024.2",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3.4",
+  "pytest-asyncio>=0.25.0",
+  "httpx>=0.28.1",
+  "ruff>=0.8.4",
+  "mypy>=1.14.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "N"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+asyncio_mode = "auto"

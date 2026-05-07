@@ -1,0 +1,140 @@
+# Pod Life — production full-stack compose.
+# This is the deployment-mode compose: API, optimizer, and web all run as
+# containers, with Postgres and Redis on internal-only networks.
+#
+# For local development, use the default docker-compose.yml which only runs
+# data services and lets you `pnpm dev` the apps on the host.
+#
+# Required environment variables (set in .env or your deployment secrets):
+#   ENCRYPTION_KEY, DB_PASSWORD, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
+#   SMTP_HOST, SMTP_USER, SMTP_PASS, EMAIL_FROM, APP_URL, FRONTEND_URL.
+# Optional: TELEGRAM_BOT_TOKEN, ANTHROPIC_API_KEY, MS_*.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: podlife_postgres
+    # Not published to host in production — internal network only.
+    expose:
+      - "5432"
+    environment:
+      POSTGRES_DB: podlife
+      POSTGRES_USER: podlife
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./apps/api/src/db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U podlife -d podlife"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - internal
+
+  redis:
+    image: redis:7-alpine
+    container_name: podlife_redis
+    expose:
+      - "6379"
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - internal
+
+  optimizer:
+    build:
+      context: .
+      dockerfile: apps/optimizer/Dockerfile
+    container_name: podlife_optimizer
+    # Not published — only the API talks to it.
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/health\")' || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - internal
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: podlife_api
+    ports:
+      - "127.0.0.1:3000:3000" # bind to localhost; reverse-proxy in front
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://podlife:${DB_PASSWORD}@postgres:5432/podlife
+      REDIS_URL: redis://redis:6379
+      OPTIMIZER_URL: http://optimizer:8000
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      APP_URL: ${APP_URL}
+      FRONTEND_URL: ${FRONTEND_URL}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      MS_CLIENT_ID: ${MS_CLIENT_ID:-}
+      MS_CLIENT_SECRET: ${MS_CLIENT_SECRET:-}
+      MS_TENANT_ID: ${MS_TENANT_ID:-common}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      EMAIL_FROM: ${EMAIL_FROM}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      optimizer:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - internal
+      - public
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: podlife_web
+    ports:
+      - "127.0.0.1:5173:80" # bind to localhost; reverse-proxy in front
+    depends_on:
+      - api
+    restart: unless-stopped
+    networks:
+      - public
+
+volumes:
+  pgdata:
+  redisdata:
+
+networks:
+  internal:
+    internal: true
+  public:

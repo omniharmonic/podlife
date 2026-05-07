@@ -1,0 +1,5 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+# Optimizer is a Python package — included so turbo sees it but pnpm skips deps.

@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@pod-life/shared": ["../../packages/shared/src/index.ts"]
+    },
+    "allowJs": false,
+    "allowImportingTsExtensions": true,
+    "noEmit": true
+  },
+  "include": ["src/**/*", "tests/**/*", "api/**/*", "drizzle.config.ts"],
+  "exclude": ["dist", "node_modules"]
+}

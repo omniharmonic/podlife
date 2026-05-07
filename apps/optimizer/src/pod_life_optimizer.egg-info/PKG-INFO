@@ -1,0 +1,19 @@
+Metadata-Version: 2.4
+Name: pod-life-optimizer
+Version: 0.1.0
+Summary: MILP-based scheduling optimizer for polyamorous families
+Author-email: Benjamin Life <benjamin@opencivics.co>
+Requires-Python: >=3.12
+Requires-Dist: fastapi>=0.115.6
+Requires-Dist: uvicorn[standard]>=0.34.0
+Requires-Dist: pydantic>=2.10.4
+Requires-Dist: highspy>=1.9.0
+Requires-Dist: numpy>=2.2.1
+Requires-Dist: python-dateutil>=2.9.0
+Requires-Dist: pytz>=2024.2
+Provides-Extra: dev
+Requires-Dist: pytest>=8.3.4; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.25.0; extra == "dev"
+Requires-Dist: httpx>=0.28.1; extra == "dev"
+Requires-Dist: ruff>=0.8.4; extra == "dev"
+Requires-Dist: mypy>=1.14.0; extra == "dev"

@@ -1,0 +1,128 @@
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { LoginPage } from '@/pages/LoginPage';
+import { VerifyPage } from '@/pages/VerifyPage';
+import { WelcomePage } from '@/pages/WelcomePage';
+import { HomePage } from '@/pages/HomePage';
+import { CalendarPage } from '@/pages/CalendarPage';
+import { PartnersPage } from '@/pages/PartnersPage';
+import { PartnerDetailPage } from '@/pages/PartnerDetailPage';
+import { PodsPage } from '@/pages/PodsPage';
+import { PodDetailPage } from '@/pages/PodDetailPage';
+import { SettingsPage } from '@/pages/SettingsPage';
+import { OnboardingPage } from '@/pages/OnboardingPage';
+import { InviteAcceptPage } from '@/pages/InviteAcceptPage';
+import { ProposalReviewPage } from '@/pages/ProposalReviewPage';
+import { AppShell } from '@/components/layout/AppShell';
+import { RequireAuth } from '@/components/layout/RequireAuth';
+
+export function App() {
+  return (
+    <Routes>
+      {/* Public */}
+      <Route path="/welcome" element={<WelcomePage />} />
+      <Route path="/login" element={<LoginPage />} />
+      {/* /verify (not /auth/verify) avoids the dev proxy that forwards /auth/* to the API. */}
+      <Route path="/verify" element={<VerifyPage />} />
+      <Route path="/auth/verify" element={<VerifyPage />} />
+      <Route path="/invite/:token" element={<InviteAcceptPage />} />
+
+      {/* Onboarding — auth required, but does NOT require onboarded flag */}
+      <Route
+        path="/onboarding"
+        element={
+          <RequireAuth requireOnboarded={false}>
+            <OnboardingPage />
+          </RequireAuth>
+        }
+      />
+
+      {/* Authenticated */}
+      <Route
+        path="/home"
+        element={
+          <RequireAuth>
+            <AppShell>
+              <HomePage />
+            </AppShell>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/calendar"
+        element={
+          <RequireAuth>
+            <AppShell>
+              <CalendarPage />
+            </AppShell>
+          </RequireAuth>
+        }
+      />
+      {/* Legacy `/` → /home */}
+      <Route path="/" element={<Navigate to="/home" replace />} />
+
+      <Route
+        path="/partners"
+        element={
+          <RequireAuth>
+            <AppShell>
+              <PartnersPage />
+            </AppShell>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/partners/:id"
+        element={
+          <RequireAuth>
+            <AppShell>
+              <PartnerDetailPage />
+            </AppShell>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/pods"
+        element={
+          <RequireAuth>
+            <AppShell>
+              <PodsPage />
+            </AppShell>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/pods/:id"
+        element={
+          <RequireAuth>
+            <AppShell>
+              <PodDetailPage />
+            </AppShell>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <RequireAuth>
+            <AppShell>
+              <SettingsPage />
+            </AppShell>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/schedule/review"
+        element={
+          <RequireAuth>
+            <AppShell>
+              <ProposalReviewPage />
+            </AppShell>
+          </RequireAuth>
+        }
+      />
+
+      {/* Fallback */}
+      <Route path="*" element={<Navigate to="/home" replace />} />
+    </Routes>
+  );
+}

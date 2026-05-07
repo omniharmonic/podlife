@@ -1,0 +1,129 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-parchment: #faf6ef;
+  --color-cream: #fffcf6;
+  --color-ink: #1b1814;
+  --color-terracotta: #c25b3f;
+  --color-sage: #7a9a85;
+  --color-wine: #7b2d26;
+  --color-gold: #d4af6f;
+  --color-rose: #c77f87;
+
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: 'DM Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
+    Roboto, sans-serif;
+  font-feature-settings: 'ss01', 'cv11';
+  background-color: var(--color-parchment);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+  font-variation-settings: 'opsz' 14;
+}
+
+/* Soft warm glow in the upper-left — gives the parchment a sun-on-paper feel
+   without committing to a heavy texture/grain. Replaces the SVG noise overlay. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(
+      1100px 700px at 8% -5%,
+      rgba(212, 175, 111, 0.10),
+      transparent 60%
+    ),
+    radial-gradient(
+      900px 600px at 105% 110%,
+      rgba(199, 127, 135, 0.08),
+      transparent 55%
+    );
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+button {
+  font-family: inherit;
+}
+
+/* Subtle scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(27, 24, 20, 0.12);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(27, 24, 20, 0.22);
+}
+
+/* Safe-area utilities */
+.pb-safe {
+  padding-bottom: calc(0.5rem + var(--safe-area-bottom));
+}
+
+.pt-safe {
+  padding-top: calc(0.5rem + var(--safe-area-top));
+}
+
+@layer components {
+  /* Display type — Instrument Serif. Used for headlines and named cards.
+     Italic is a deliberate accent, not the default. */
+  .font-display {
+    font-family: 'Instrument Serif', 'Georgia', serif;
+    font-weight: 400;
+    letter-spacing: -0.005em;
+  }
+
+  .font-display-italic {
+    font-family: 'Instrument Serif', 'Georgia', serif;
+    font-style: italic;
+    font-weight: 400;
+    letter-spacing: -0.005em;
+  }
+
+  /* Eyebrow — small caps tracked label. Less mono-monolithic than before;
+     uses DM Sans uppercase for a quieter, more modern feel. */
+  .eyebrow {
+    @apply uppercase tracking-[0.16em] text-[0.7rem] font-medium;
+    color: #6f6657;
+    font-feature-settings: 'ss01';
+  }
+
+  /* Mono labels reserved for true tabular metadata (counts, dates). */
+  .meta-mono {
+    @apply font-mono uppercase tracking-[0.14em] text-[0.65rem];
+    color: #6f6657;
+  }
+}
+
+/* Focus ring — thin ink, not a SaaS halo */
+:where(button, a, input, textarea, select, [tabindex]):focus-visible {
+  outline: 1.5px solid var(--color-ink);
+  outline-offset: 2px;
+  border-radius: 4px;
+}

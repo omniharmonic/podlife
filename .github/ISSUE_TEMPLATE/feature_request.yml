@@ -1,0 +1,61 @@
+name: Feature request
+description: Suggest an enhancement or new capability.
+title: "[feature]: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        We love thoughtful feature requests. Before submitting, please check
+        whether this is already on the post-launch backlog in
+        `.claude/pod-life-implementation-plan.md`.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the situation that's currently painful or impossible.
+      placeholder: "When I have a recurring weekly date night, I have to re-enter it every cycle..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: How should it work? Sketches, examples, or rough UI ideas welcome.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches you considered and why this one is better.
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Estimated scope
+      options:
+        - Small (a few hours)
+        - Medium (a few days)
+        - Large (a week or more)
+        - I'm not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: privacy
+    attributes:
+      label: Privacy implications
+      description: Does this feature touch relationship data, schedule data, or outbound messages? If yes, how does it preserve the cross-pod privacy invariant?
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Are you interested in implementing this?
+      options:
+        - label: I'd like to take a stab at this myself.
+        - label: I can help with design/spec but not implementation.
+        - label: I'm just suggesting; happy to wait for someone else.

@@ -1,0 +1,100 @@
+name: Bug report
+description: Something is broken or behaving unexpectedly.
+title: "[bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Please fill in as much detail as you can —
+        it makes the difference between "fixed today" and "fixed someday."
+
+        **If this is a security or privacy issue**, please do NOT use this
+        template. Email benjamin@opencivics.co instead. See [SECURITY.md](../SECURITY.md).
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One-sentence description of the bug.
+      placeholder: "Calendar events from Google show duplicate availability..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Numbered steps that someone else can follow.
+      placeholder: |
+        1. Connect a Google Calendar
+        2. Navigate to the calendar view
+        3. Observe the duplicated time blocks
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What actually happened?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Which component is affected?
+      multiple: true
+      options:
+        - apps/api
+        - apps/web
+        - apps/optimizer
+        - packages/shared
+        - Docker / deployment
+        - Telegram bot
+        - AI features
+        - Documentation
+        - Other / unsure
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Pod Life version
+      description: Git commit SHA or release tag.
+      placeholder: "v0.1.0 or 7f3a2c1"
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: |
+        - OS: Ubuntu 22.04
+        - Browser: Firefox 120
+        - Self-hosted / hosted: self-hosted via Docker
+        - Node version: 22.10.0
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Paste any relevant API logs, browser console output, or stack traces. Redact anything sensitive.
+      render: shell
+
+  - type: checkboxes
+    id: privacy-check
+    attributes:
+      label: Privacy check
+      options:
+        - label: I've removed any personal information (real names, partner data, calendar contents) from this report.
+          required: true

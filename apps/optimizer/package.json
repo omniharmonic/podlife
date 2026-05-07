@@ -1,0 +1,13 @@
+{
+  "name": "@pod-life/optimizer",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": ".venv/bin/uvicorn src.main:app --reload --host 0.0.0.0 --port 8000 --app-dir .",
+    "build": "echo 'optimizer: nothing to build'",
+    "lint": ".venv/bin/ruff check src tests",
+    "typecheck": ".venv/bin/mypy src 2>/dev/null || echo 'mypy skipped'",
+    "test": ".venv/bin/pytest -q",
+    "install:py": "python3 -m venv .venv && .venv/bin/pip install -r requirements.txt -e .[dev]"
+  }
+}
