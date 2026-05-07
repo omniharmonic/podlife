@@ -216,10 +216,7 @@ export function SettingsPage() {
             name="Google Calendar"
             connectHref={`/auth/calendar/google?token=${encodeURIComponent(getSessionToken() ?? '')}`}
           />
-          <CalendarRow
-            name="Outlook"
-            connectHref={`/auth/calendar/microsoft?token=${encodeURIComponent(getSessionToken() ?? '')}`}
-          />
+          <CalendarRow name="Outlook" comingSoon />
           <CalendarRow name="iCloud (CalDAV)" comingSoon />
         </div>
       </Section>
