@@ -8,7 +8,9 @@
  *  4. Invert into a set of free windows over [rangeStart, rangeEnd].
  *  5. Optionally fall back to manual availability if no provider.
  *
- * Result is cached in Redis for 1 hour (key includes range).
+ * Result is cached in Redis for AVAIL_CACHE_TTL_SECONDS (key includes range).
+ * The cache is also explicitly busted on calendar connect/disconnect and
+ * manual availability writes.
  */
 import { eq } from 'drizzle-orm';
 import type { BlockedWindow } from '@pod-life/shared';
@@ -103,6 +105,14 @@ export function expandBlockedWindows(
 }
 
 const cacheKey = redisFor('avail');
+/**
+ * Free/busy cache TTL. Short enough that stale data drops quickly when
+ * source-of-truth changes out-of-band (e.g., direct DB writes, or a fix
+ * we haven't wired explicit invalidation for yet); long enough that
+ * cycles that touch the same person multiple times in a row reuse the
+ * Google response (one cycle calls ~3-5 times across persons + reshuffles).
+ */
+const AVAIL_CACHE_TTL_SECONDS = 5 * 60;
 
 export async function getPersonFreeWindows(
   personId: string,
@@ -159,7 +169,7 @@ export async function getPersonFreeWindows(
       await redis.set(
         key,
         JSON.stringify(free.map((w) => ({ start: w.start.toISOString(), end: w.end.toISOString() }))),
-        60 * 60,
+        AVAIL_CACHE_TTL_SECONDS,
       );
       return free;
     }
@@ -175,7 +185,7 @@ export async function getPersonFreeWindows(
   await redis.set(
     key,
     JSON.stringify(free.map((w) => ({ start: w.start.toISOString(), end: w.end.toISOString() }))),
-    60 * 60,
+    AVAIL_CACHE_TTL_SECONDS,
   );
   return free;
 }
