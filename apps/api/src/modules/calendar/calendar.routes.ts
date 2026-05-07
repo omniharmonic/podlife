@@ -111,6 +111,10 @@ calendarOAuthRoutes.get('/google/callback', async (c) => {
 
   const tokens = await exchangeCode(code);
   await persistConnection(personId, tokens);
-  // Redirect back to the frontend.
+  // Bust the availability cache: any rows computed from manual/blocked-windows
+  // before the connection landed are now stale. Without this, the next cycle
+  // would silently use the cached pre-connection free windows for up to an
+  // hour, producing wrong proposals or 'no overlap' false negatives.
+  await invalidatePersonAvailabilityCache(personId);
   return c.redirect(`${config.frontendUrl}/settings/calendars?connected=google`);
 });
