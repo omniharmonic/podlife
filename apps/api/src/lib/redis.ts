@@ -89,11 +89,12 @@ function makeIORedisAdapter(): RedisAdapter {
 }
 
 function makeUpstashAdapter(): RedisAdapter {
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  const url = config.upstash.redisUrl;
+  const token = config.upstash.redisToken;
   if (!url || !token) {
     throw new Error(
-      'UPSTASH_REDIS_REST_URL is set but UPSTASH_REDIS_REST_TOKEN is missing.',
+      'Upstash Redis URL/token missing. Set UPSTASH_REDIS_REST_URL+UPSTASH_REDIS_REST_TOKEN ' +
+        '(or the Vercel marketplace alias KV_REST_API_URL+KV_REST_API_TOKEN).',
     );
   }
   const client = new UpstashRedis({ url, token });
@@ -149,7 +150,7 @@ function makeUpstashAdapter(): RedisAdapter {
   };
 }
 
-const useUpstash = !!process.env.UPSTASH_REDIS_REST_URL;
+const useUpstash = config.upstash.redisEnabled;
 
 export const redis: RedisAdapter = useUpstash ? makeUpstashAdapter() : makeIORedisAdapter();
 export const redisDriver = useUpstash ? 'upstash' : 'ioredis';

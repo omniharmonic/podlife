@@ -17,7 +17,9 @@ const envSchema = z.object({
 
   // Required
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
-  REDIS_URL: z.string().min(1, 'REDIS_URL is required'),
+  // REDIS_URL is required only when no Upstash Redis is configured.
+  // The cross-field check happens after parse — see below.
+  REDIS_URL: z.string().optional().default(''),
   ENCRYPTION_KEY: z
     .string()
     .regex(HEX_64, 'ENCRYPTION_KEY must be a 64-char hex string (32 bytes). Generate with: openssl rand -hex 32'),
@@ -38,8 +40,13 @@ const envSchema = z.object({
   RESEND_API_KEY: z.string().optional().default(''),
 
   // Upstash + QStash (serverless deployments). Leave blank for self-hosted.
+  // The Vercel Upstash marketplace integration provisions vars with `KV_`
+  // prefix by default (KV_REST_API_URL / KV_REST_API_TOKEN); we accept those
+  // as aliases for the canonical UPSTASH_REDIS_REST_* names.
   UPSTASH_REDIS_REST_URL: z.string().optional().default(''),
   UPSTASH_REDIS_REST_TOKEN: z.string().optional().default(''),
+  KV_REST_API_URL: z.string().optional().default(''),
+  KV_REST_API_TOKEN: z.string().optional().default(''),
   QSTASH_TOKEN: z.string().optional().default(''),
   QSTASH_CURRENT_SIGNING_KEY: z.string().optional().default(''),
   QSTASH_NEXT_SIGNING_KEY: z.string().optional().default(''),
@@ -76,6 +83,19 @@ if (!parsed.success) {
   throw new Error('Invalid environment configuration');
 }
 
+// Cross-field check: at least one Redis transport must be configured.
+const hasIORedis = !!parsed.data.REDIS_URL;
+const hasUpstash =
+  !!(parsed.data.UPSTASH_REDIS_REST_URL || parsed.data.KV_REST_API_URL) &&
+  !!(parsed.data.UPSTASH_REDIS_REST_TOKEN || parsed.data.KV_REST_API_TOKEN);
+if (!hasIORedis && !hasUpstash) {
+  throw new Error(
+    'No Redis transport configured. Set REDIS_URL (self-hosted) or both ' +
+      'UPSTASH_REDIS_REST_URL+UPSTASH_REDIS_REST_TOKEN (or the Vercel marketplace ' +
+      'aliases KV_REST_API_URL+KV_REST_API_TOKEN).',
+  );
+}
+
 export const config = Object.freeze({
   env: parsed.data.NODE_ENV,
   isProduction: parsed.data.NODE_ENV === 'production',
@@ -101,12 +121,14 @@ export const config = Object.freeze({
     enabled: !!parsed.data.RESEND_API_KEY,
   },
   upstash: {
-    redisUrl: parsed.data.UPSTASH_REDIS_REST_URL,
-    redisToken: parsed.data.UPSTASH_REDIS_REST_TOKEN,
+    // Prefer canonical UPSTASH_REDIS_* names; fall back to KV_REST_API_* aliases
+    // emitted by the Vercel Upstash marketplace integration.
+    redisUrl: parsed.data.UPSTASH_REDIS_REST_URL || parsed.data.KV_REST_API_URL,
+    redisToken: parsed.data.UPSTASH_REDIS_REST_TOKEN || parsed.data.KV_REST_API_TOKEN,
     qstashToken: parsed.data.QSTASH_TOKEN,
     qstashCurrentSigningKey: parsed.data.QSTASH_CURRENT_SIGNING_KEY,
     qstashNextSigningKey: parsed.data.QSTASH_NEXT_SIGNING_KEY,
-    redisEnabled: !!parsed.data.UPSTASH_REDIS_REST_URL,
+    redisEnabled: !!(parsed.data.UPSTASH_REDIS_REST_URL || parsed.data.KV_REST_API_URL),
     qstashEnabled: !!parsed.data.QSTASH_TOKEN,
   },
   cronSecret: parsed.data.CRON_SECRET,
