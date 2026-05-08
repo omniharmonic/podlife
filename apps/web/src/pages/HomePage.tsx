@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { isToday, parseISO, formatDistanceToNowStrict } from 'date-fns';
@@ -18,7 +19,11 @@ import { SatisfactionRing } from '@/components/ui/SatisfactionRing';
 import { Avatar } from '@/components/ui/Avatar';
 import { useUiStore } from '@/stores/ui.store';
 import { useInstallPrompt } from '@/hooks/useInstallPrompt';
+import { passkeys as passkeysApi } from '@/lib/api';
+import { enrollPasskey, isPasskeySupported } from '@/lib/passkeys';
 import { formatTimeRange } from '@/lib/dates';
+
+const PASSKEY_NUDGE_KEY = 'podlife.passkeyNudge.dismissed';
 
 /**
  * Home — the daily landing surface. Three jobs in priority order:
@@ -36,6 +41,54 @@ export function HomePage() {
   const runCycle = useRunCycle();
   const showToast = useUiStore((s) => s.showToast);
   const install = useInstallPrompt();
+  const queryClient = useQueryClient();
+
+  // Passkey nudge — quiet "skip the email next time" card, only when the
+  // platform supports passkeys, the user has none yet, and they haven't
+  // dismissed the nudge before. Same pattern as the install card.
+  const passkeySupported = isPasskeySupported();
+  const passkeysQuery = useQuery({
+    queryKey: ['passkeys'],
+    queryFn: () => passkeysApi.list(),
+    select: (d) => d.passkeys,
+    enabled: passkeySupported,
+  });
+  const [passkeyDismissed, setPasskeyDismissed] = useState(() => {
+    if (typeof localStorage === 'undefined') return false;
+    return localStorage.getItem(PASSKEY_NUDGE_KEY) === '1';
+  });
+  const [enrollBusy, setEnrollBusy] = useState(false);
+  const passkeyCount = passkeysQuery.data?.length ?? 0;
+  const showPasskeyNudge =
+    passkeySupported &&
+    passkeysQuery.isSuccess &&
+    passkeyCount === 0 &&
+    !passkeyDismissed;
+
+  async function onEnrollPasskey() {
+    if (enrollBusy) return;
+    setEnrollBusy(true);
+    try {
+      const result = await enrollPasskey();
+      if (result.status === 'enrolled') {
+        await queryClient.invalidateQueries({ queryKey: ['passkeys'] });
+        showToast('Passkey saved — sign-in is one tap from now on', 'success');
+      } else if (result.status === 'error') {
+        showToast(result.message, 'error');
+      }
+    } finally {
+      setEnrollBusy(false);
+    }
+  }
+
+  function dismissPasskeyNudge() {
+    setPasskeyDismissed(true);
+    try {
+      localStorage.setItem(PASSKEY_NUDGE_KEY, '1');
+    } catch {
+      /* private mode — fall through */
+    }
+  }
 
   const greeting = useMemo(() => greetingForHour(new Date()), []);
   const blocks = useMemo(() => proposals.data?.proposals ?? [], [proposals.data]);
@@ -259,6 +312,42 @@ export function HomePage() {
                   </Link>
                 );
               })}
+            </div>
+          </Card>
+        </section>
+      )}
+
+      {/* Passkey nudge — invite the user to skip the code next time.
+          Quiet, one-tap, dismissable. Hidden once they have any passkey
+          or have dismissed it. */}
+      {showPasskeyNudge && (
+        <section>
+          <Card padding="md" className="border-sage-200/70 bg-sage-50/40">
+            <div className="flex items-start gap-4">
+              <span aria-hidden="true" className="mt-0.5 text-2xl shrink-0">
+                🔐
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="font-display text-ink-800 text-[1.35rem] leading-tight tracking-[-0.005em]">
+                  Skip the email next time
+                </p>
+                <p className="text-sm text-ink-600 mt-1.5 leading-relaxed">
+                  Save a passkey on this device — Face ID or Touch ID will
+                  sign you in instantly, no code to wait for.
+                </p>
+                <div className="flex items-center gap-3 mt-3.5">
+                  <Button size="sm" onClick={onEnrollPasskey} loading={enrollBusy}>
+                    Save a passkey
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={dismissPasskeyNudge}
+                    className="text-[12px] text-ink-500 hover:text-ink-700 underline-offset-4 hover:underline"
+                  >
+                    Not now
+                  </button>
+                </div>
+              </div>
             </div>
           </Card>
         </section>
