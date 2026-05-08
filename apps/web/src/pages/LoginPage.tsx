@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/Input';
 import { Flourish } from '@/components/ui/Flourish';
 import { auth } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
+import { isPasskeySupported, signInWithPasskey } from '@/lib/passkeys';
 
 type Status =
   | { kind: 'idle' }
@@ -41,8 +42,10 @@ export function LoginPage() {
   const [code, setCode] = useState('');
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
   const codeInputRef = useRef<HTMLInputElement | null>(null);
+  const [passkeyBusy, setPasskeyBusy] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const passkeySupported = isPasskeySupported();
 
   // Focus the code input the moment we transition to the awaiting step so
   // the iOS one-time-code suggestion bar can pop up immediately.
@@ -104,6 +107,27 @@ export function LoginPage() {
   function backToEmail() {
     setStatus({ kind: 'idle' });
     setCode('');
+  }
+
+  async function onPasskey() {
+    if (passkeyBusy) return;
+    setPasskeyBusy(true);
+    try {
+      const trimmed = email.trim() || undefined;
+      const result = await signInWithPasskey(trimmed);
+      if (result.status === 'signed-in') {
+        login(result.sessionToken, result.person);
+        const dest = result.person.onboardedAt ? '/home' : '/onboarding';
+        navigate(dest, { replace: true });
+        return;
+      }
+      if (result.status === 'error') {
+        setStatus({ kind: 'error', email: trimmed ?? null, message: result.message });
+      }
+      // 'cancelled' is a quiet no-op — user closed the system prompt.
+    } finally {
+      setPasskeyBusy(false);
+    }
   }
 
   async function resendCode() {
@@ -348,6 +372,28 @@ export function LoginPage() {
               >
                 Send the code
               </Button>
+
+              {passkeySupported && (
+                <>
+                  <div className="flex items-center gap-3 my-1 text-ink-300">
+                    <span className="flex-1 h-px bg-ink-200/70" />
+                    <span className="text-[10px] uppercase tracking-[0.18em]">
+                      or
+                    </span>
+                    <span className="flex-1 h-px bg-ink-200/70" />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="lg"
+                    fullWidth
+                    onClick={onPasskey}
+                    loading={passkeyBusy}
+                  >
+                    Sign in with a passkey
+                  </Button>
+                </>
+              )}
             </motion.form>
           )}
 

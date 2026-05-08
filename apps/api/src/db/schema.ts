@@ -139,6 +139,58 @@ export const magicLinks = pgTable(
   ],
 );
 
+// WebAuthn passkey credentials. One row per (person, device) pair.
+// `credentialId` is the credential's raw bytes encoded as base64url — the
+// canonical form returned by both the browser and authenticators. The
+// public key is stored as base64url too for stable round-tripping. The
+// counter guards against cloned authenticators (newer attesters always
+// monotonically advance it; values that go backward signal a clone).
+export const webauthnCredentials = pgTable(
+  'webauthn_credentials',
+  {
+    id: uuid('id').primaryKey().default(sql`uuid_generate_v4()`),
+    personId: uuid('person_id')
+      .notNull()
+      .references(() => persons.id, { onDelete: 'cascade' }),
+    credentialId: text('credential_id').notNull().unique(),
+    publicKey: text('public_key').notNull(),
+    counter: integer('counter').notNull().default(0),
+    transports: jsonb('transports').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+    deviceType: text('device_type').notNull().default('singleDevice'),
+    backedUp: boolean('backed_up').notNull().default(false),
+    nickname: text('nickname'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+  },
+  (t) => [
+    index('idx_webauthn_person').on(t.personId),
+    index('idx_webauthn_credential_id').on(t.credentialId),
+  ],
+);
+
+// Short-lived WebAuthn challenges. Stored server-side so we can verify the
+// `clientDataJSON` against the exact challenge we issued, no matter which
+// browser tab/window completes the flow. Cleaned up on use or expiry.
+export const webauthnChallenges = pgTable(
+  'webauthn_challenges',
+  {
+    id: uuid('id').primaryKey().default(sql`uuid_generate_v4()`),
+    /** Either a logged-in person.id (registration) or null (sign-in by usernameless flow). */
+    personId: uuid('person_id').references(() => persons.id, { onDelete: 'cascade' }),
+    /** Email captured for sign-in challenges so we can match the assertion to a person. */
+    email: text('email'),
+    challenge: text('challenge').notNull(),
+    purpose: text('purpose').notNull(), // 'register' | 'authenticate'
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('idx_webauthn_chal_person').on(t.personId),
+    index('idx_webauthn_chal_email').on(t.email),
+    index('idx_webauthn_chal_expires').on(t.expiresAt),
+  ],
+);
+
 export const sessions = pgTable(
   'sessions',
   {

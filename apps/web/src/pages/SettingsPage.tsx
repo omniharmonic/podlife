@@ -13,6 +13,8 @@ import { EditorialHeading } from '@/components/ui/EditorialHeading';
 import { useSetManualAvailability } from '@/hooks/useAvailability';
 import { usePodsList, useCreatePod } from '@/hooks/usePods';
 import { useInstallPrompt } from '@/hooks/useInstallPrompt';
+import { passkeys as passkeysApi } from '@/lib/api';
+import { enrollPasskey, isPasskeySupported } from '@/lib/passkeys';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { me as meApi, getSessionToken, calendars as calendarsApi } from '@/lib/api';
 import { useUiStore } from '@/stores/ui.store';
@@ -165,6 +167,39 @@ export function SettingsPage() {
   const podsList = usePodsList();
   const createPod = useCreatePod();
   const install = useInstallPrompt();
+
+  const passkeySupported = isPasskeySupported();
+  const passkeysQuery = useQuery({
+    queryKey: ['passkeys'],
+    queryFn: () => passkeysApi.list(),
+    select: (d) => d.passkeys,
+    enabled: passkeySupported,
+  });
+  const enrolledPasskeys = passkeysQuery.data ?? [];
+  const [passkeyBusy, setPasskeyBusy] = useState(false);
+
+  async function onAddPasskey() {
+    if (passkeyBusy) return;
+    setPasskeyBusy(true);
+    try {
+      const nickname = inferDeviceNickname();
+      const result = await enrollPasskey(nickname);
+      if (result.status === 'enrolled') {
+        await queryClient.invalidateQueries({ queryKey: ['passkeys'] });
+        showToast('Passkey saved on this device', 'success');
+      } else if (result.status === 'error') {
+        showToast(result.message, 'error');
+      }
+      // 'cancelled' is a quiet no-op.
+    } finally {
+      setPasskeyBusy(false);
+    }
+  }
+
+  const removePasskey = useMutation({
+    mutationFn: (id: string) => passkeysApi.delete(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['passkeys'] }),
+  });
   const [podModalOpen, setPodModalOpen] = useState(false);
   const [podName, setPodName] = useState('');
   const [podEmoji, setPodEmoji] = useState('🏠');
@@ -283,6 +318,70 @@ export function SettingsPage() {
           </Button>
         </div>
       </Section>
+
+      {/* Passkeys — only shown on platforms that support WebAuthn (essentially
+          everywhere modern). Lets the user skip the email-code dance on
+          subsequent sign-ins. */}
+      {passkeySupported && (
+        <Section title="Passkeys">
+          <p className="text-sm text-ink-500 mb-4">
+            Save a passkey on this device and you can sign in with Face ID or
+            Touch ID — no code, no email, no waiting.
+          </p>
+          {enrolledPasskeys.length === 0 ? (
+            <div className="px-4 py-3 rounded-xl border border-dashed border-ink-200/70 bg-cream/60 text-sm text-ink-500 mb-4">
+              {passkeysQuery.isLoading
+                ? 'Looking…'
+                : 'No passkeys yet on this account.'}
+            </div>
+          ) : (
+            <ul className="flex flex-col gap-2 mb-4">
+              {enrolledPasskeys.map((p) => (
+                <li
+                  key={p.id}
+                  className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-ink-100/60 bg-cream"
+                >
+                  <span aria-hidden="true" className="text-xl">
+                    {p.deviceType === 'multiDevice' ? '🔑' : '🔐'}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-ink-800 font-medium truncate">
+                      {p.nickname ?? 'Passkey'}
+                    </p>
+                    <p className="text-[11px] text-ink-500 mt-0.5">
+                      {p.lastUsedAt
+                        ? `Last used ${new Date(p.lastUsedAt).toLocaleDateString()}`
+                        : 'Not used yet'}
+                      {p.backedUp ? ' · synced' : ' · this device only'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          `Remove this passkey? You'll need to sign in with a code to add another.`,
+                        )
+                      ) {
+                        removePasskey.mutate(p.id);
+                      }
+                    }}
+                    className="text-[12px] text-ink-500 hover:text-wine-600 underline-offset-4 hover:underline"
+                    disabled={removePasskey.isPending}
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <Button variant="ghost" onClick={onAddPasskey} loading={passkeyBusy}>
+            {enrolledPasskeys.length === 0
+              ? 'Save a passkey'
+              : 'Add another passkey'}
+          </Button>
+        </Section>
+      )}
 
       {/* Install — only shown when the platform supports installation
           and the app isn't already running standalone. */}
@@ -530,6 +629,28 @@ export function SettingsPage() {
 interface SectionProps {
   title: string;
   children: React.ReactNode;
+}
+
+/**
+ * Best-effort device label so a user with several passkeys can tell them
+ * apart. UA-CH `userAgentData` gives clean platform names on Chromium; a
+ * userAgent regex covers everywhere else. Falls back to `Passkey` so the
+ * server has a non-empty nickname even on weird browsers.
+ */
+function inferDeviceNickname(): string {
+  if (typeof navigator === 'undefined') return 'Passkey';
+  const uaData = (navigator as Navigator & { userAgentData?: { platform?: string } })
+    .userAgentData;
+  if (uaData?.platform) {
+    return `${uaData.platform} passkey`;
+  }
+  const ua = navigator.userAgent;
+  if (/iPhone|iPad|iPod/.test(ua)) return 'iPhone passkey';
+  if (/Android/.test(ua)) return 'Android passkey';
+  if (/Mac/.test(ua)) return 'Mac passkey';
+  if (/Windows/.test(ua)) return 'Windows passkey';
+  if (/Linux/.test(ua)) return 'Linux passkey';
+  return 'Passkey';
 }
 
 function Section({ title, children }: SectionProps) {

@@ -27,12 +27,29 @@ import {
 import { NotFoundError } from '../../lib/errors.js';
 import { toPersonDto } from './persons.dto.js';
 import { cleanupRedisForPerson } from './persons.lifecycle.js';
+import { deletePasskey, listPasskeys } from '../auth/passkey.service.js';
 
 export const personsRoutes = new Hono();
 
 personsRoutes.get('/me', (c) => {
   const person = c.get('person');
   return c.json({ person: toPersonDto(person) });
+});
+
+personsRoutes.get('/me/passkeys', async (c) => {
+  const me = c.get('person');
+  const passkeys = await listPasskeys(me.id);
+  return c.json({ passkeys });
+});
+
+personsRoutes.delete('/me/passkeys/:id', async (c) => {
+  const me = c.get('person');
+  const id = c.req.param('id');
+  const removed = await deletePasskey(me.id, id);
+  if (!removed) {
+    throw new NotFoundError('Passkey not found');
+  }
+  return c.json({ ok: true });
 });
 
 personsRoutes.patch('/me', zValidator('json', updatePersonSchema), async (c) => {

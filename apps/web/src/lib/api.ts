@@ -160,6 +160,55 @@ export const auth = {
   },
 };
 
+export interface PasskeyListItem {
+  id: string;
+  nickname: string | null;
+  deviceType: string;
+  backedUp: boolean;
+  createdAt: string;
+  lastUsedAt: string | null;
+}
+
+export const passkeys = {
+  list() {
+    return request<{ passkeys: PasskeyListItem[] }>(`/api/me/passkeys`);
+  },
+  delete(id: string) {
+    return request<{ ok: true }>(`/api/me/passkeys/${id}`, { method: 'DELETE' });
+  },
+  // Registration is bound to a logged-in session; the body is a webauthn
+  // RegistrationResponseJSON which we pass through opaquely.
+  registerOptions() {
+    return request<{ options: unknown }>(`/auth/passkey/register/options`, {
+      method: 'POST',
+      body: {},
+    });
+  },
+  registerVerify(response: unknown, nickname?: string) {
+    return request<{ credentialId: string; nickname: string | null }>(
+      `/auth/passkey/register/verify`,
+      { method: 'POST', body: { response, nickname } },
+    );
+  },
+  authenticateOptions(email?: string) {
+    return request<{ options: unknown }>(`/auth/passkey/authenticate/options`, {
+      method: 'POST',
+      body: email ? { email } : {},
+      unauthenticated: true,
+    });
+  },
+  authenticateVerify(response: unknown, email?: string) {
+    return request<{ sessionToken: string; person: Person }>(
+      `/auth/passkey/authenticate/verify`,
+      {
+        method: 'POST',
+        body: email ? { response, email } : { response },
+        unauthenticated: true,
+      },
+    );
+  },
+};
+
 export const me = {
   // The API wraps person responses as { person: ... }; unwrap so callers
   // can use the bare Person without each call site re-implementing this.

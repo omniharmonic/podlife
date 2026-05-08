@@ -24,6 +24,8 @@
     "@hono/zod-validator": "^0.4.2",
     "@neondatabase/serverless": "^1.1.0",
     "@pod-life/shared": "workspace:*",
+    "@simplewebauthn/server": "^11.0.0",
+    "@simplewebauthn/types": "^11.0.0",
     "@upstash/qstash": "^2.10.1",
     "@upstash/redis": "^1.38.0",
     "@vercel/blob": "^2.3.3",
