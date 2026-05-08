@@ -28,6 +28,11 @@ import { db } from '../../db/index.js';
 import { auditLog, magicLinks, persons, sessions } from '../../db/schema.js';
 import type { PersonRow } from '../../db/schema.js';
 import { sendEmail } from '../../services/email/email.service.js';
+import {
+  renderCodeFeature,
+  renderLetter,
+  renderLetterText,
+} from '../../services/email/email-layout.js';
 
 // 31-char alphabet — uppercase letters minus the visually ambiguous `I`,
 // `O`, `L` and digits minus `0`, `1`. Avoids "did you mean an O or a 0?"
@@ -82,24 +87,35 @@ export async function requestLoginCode(email: string): Promise<LoginCodeRequestR
   });
 
   const display = formatCodeForDisplay(code);
+  // Brand voice: editorial, lead with care. Subject line carries the code
+  // so the lock-screen preview is useful even before the email opens.
+  const letter = {
+    eyebrow: 'A way back in',
+    headline: `Welcome${''}.`,
+    body: [
+      `Your Pod Life sign-in code is below. Type or paste it where you ` +
+        `left off — no link to chase, nothing to install.`,
+      `It works once and expires in ${LOGIN_CODE_TTL_MINUTES} minutes — ` +
+        `like most good things.`,
+    ],
+    feature: renderCodeFeature(display),
+    postscript:
+      `Didn't ask to sign in? You can safely ignore this letter — the ` +
+      `code expires on its own.`,
+  };
+  const html = renderLetter(letter);
+  // Plain-text counterpart includes the code in the body since the visual
+  // feature block won't survive a text/plain rendering.
+  const text =
+    renderLetterText(letter) +
+    '\n\n' +
+    `Sign-in code: ${display}\n` +
+    `Expires in ${LOGIN_CODE_TTL_MINUTES} minutes.`;
   await sendEmail({
     to: email,
     subject: `Your Pod Life sign-in code: ${display}`,
-    text:
-      `Your Pod Life sign-in code is:\n\n` +
-      `    ${display}\n\n` +
-      `Enter it in the app within ${LOGIN_CODE_TTL_MINUTES} minutes. ` +
-      `If you didn't ask to sign in, you can safely ignore this email.`,
-    html:
-      `<p>Your Pod Life sign-in code is:</p>` +
-      `<p style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;` +
-      `font-size:32px;letter-spacing:0.18em;font-weight:600;color:#1B1814;` +
-      `background:#FAF7F2;border:1px solid #E5DDD0;border-radius:12px;` +
-      `padding:18px 22px;display:inline-block;">${display}</p>` +
-      `<p style="color:#6B655B;">Enter it in the app within ` +
-      `${LOGIN_CODE_TTL_MINUTES} minutes.</p>` +
-      `<p style="color:#A39B8E;font-size:13px;">If you didn't ask to sign in, ` +
-      `you can safely ignore this email.</p>`,
+    text,
+    html,
   });
 
   logger.info('login code requested', { email });
