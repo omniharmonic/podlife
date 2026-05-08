@@ -200,6 +200,24 @@ export function SettingsPage() {
     mutationFn: (id: string) => passkeysApi.delete(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['passkeys'] }),
   });
+  const removeAllPasskeys = useMutation({
+    mutationFn: () => passkeysApi.deleteAll(),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['passkeys'] });
+      showToast(
+        data.removed === 0
+          ? 'No passkeys to remove.'
+          : `Removed ${data.removed} passkey${data.removed === 1 ? '' : 's'}.`,
+        'success',
+      );
+    },
+    onError: (err) => {
+      showToast(
+        err instanceof Error ? err.message : 'Could not remove passkeys',
+        'error',
+      );
+    },
+  });
   const [podModalOpen, setPodModalOpen] = useState(false);
   const [podName, setPodName] = useState('');
   const [podEmoji, setPodEmoji] = useState('🏠');
@@ -375,11 +393,31 @@ export function SettingsPage() {
               ))}
             </ul>
           )}
-          <Button variant="ghost" onClick={onAddPasskey} loading={passkeyBusy}>
-            {enrolledPasskeys.length === 0
-              ? 'Save a passkey'
-              : 'Add another passkey'}
-          </Button>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button variant="ghost" onClick={onAddPasskey} loading={passkeyBusy}>
+              {enrolledPasskeys.length === 0
+                ? 'Save a passkey'
+                : 'Add another passkey'}
+            </Button>
+            {enrolledPasskeys.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      `Remove all ${enrolledPasskeys.length} passkey${enrolledPasskeys.length === 1 ? '' : 's'} from this account? You'll need to sign in with a code to add a new one.`,
+                    )
+                  ) {
+                    removeAllPasskeys.mutate();
+                  }
+                }}
+                disabled={removeAllPasskeys.isPending}
+                className="text-[12px] text-ink-500 hover:text-wine-600 underline-offset-4 hover:underline disabled:opacity-50"
+              >
+                {removeAllPasskeys.isPending ? 'Removing…' : 'Remove all'}
+              </button>
+            )}
+          </div>
         </Section>
       )}
 

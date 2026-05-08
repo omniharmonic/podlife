@@ -176,6 +176,11 @@ export const passkeys = {
   delete(id: string) {
     return request<{ ok: true }>(`/api/me/passkeys/${id}`, { method: 'DELETE' });
   },
+  deleteAll() {
+    return request<{ ok: true; removed: number }>(`/api/me/passkeys`, {
+      method: 'DELETE',
+    });
+  },
   // Registration is bound to a logged-in session; the body is a webauthn
   // RegistrationResponseJSON which we pass through opaquely.
   registerOptions() {
