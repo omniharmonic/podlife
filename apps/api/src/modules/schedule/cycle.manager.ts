@@ -138,10 +138,31 @@ export async function processCycleJob(data: { cycleId: string }): Promise<unknow
     return { ok: false };
   }
 
-  await db
+  // Idempotency guard. The queue retries (BullMQ attempts: 3, QStash native
+  // retries) and the synchronous test backdoor at /_test/run-now can both
+  // dispatch the same cycleId — without this gate they double-insert
+  // proposed blocks. A cycle that's moved past 'collecting' has either
+  // already been processed or is being processed concurrently in another
+  // worker; in both cases the right thing is to no-op rather than rerun.
+  if (cycle.status !== 'collecting') {
+    logger.info('cycle already past collecting; skipping duplicate run', {
+      cycleId: cycle.id,
+      status: cycle.status,
+    });
+    return { ok: true, skipped: true, status: cycle.status };
+  }
+
+  // Atomically claim the cycle by flipping collecting → optimizing. If the
+  // update affects zero rows another worker beat us to it, so bail.
+  const claimed = await db
     .update(schedulingCycles)
     .set({ status: 'optimizing' })
-    .where(eq(schedulingCycles.id, cycle.id));
+    .where(and(eq(schedulingCycles.id, cycle.id), eq(schedulingCycles.status, 'collecting')))
+    .returning({ id: schedulingCycles.id });
+  if (claimed.length === 0) {
+    logger.info('cycle was claimed by another worker; skipping', { cycleId: cycle.id });
+    return { ok: true, skipped: true };
+  }
 
   try {
     // Build the OptimizationRequest.

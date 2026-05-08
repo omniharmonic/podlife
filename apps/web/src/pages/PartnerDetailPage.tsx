@@ -87,7 +87,7 @@ export function PartnerDetailPage() {
             <div className="flex items-center gap-3">
               {stats && (
                 <SatisfactionRing
-                  pct={(stats.pref_pct ?? 0) * 100}
+                  pct={stats.pref_pct ?? 0}
                   color={partner.color}
                   size={64}
                 />

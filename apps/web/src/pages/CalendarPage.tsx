@@ -74,7 +74,7 @@ export function CalendarPage() {
             </h1>
           </div>
           {mySatisfaction && (
-            <SatisfactionRing pct={mySatisfaction.overall_pct * 100} size={64} />
+            <SatisfactionRing pct={mySatisfaction.overall_pct} size={64} />
           )}
         </div>
       </header>
@@ -146,7 +146,7 @@ export function CalendarPage() {
             <div className="flex flex-wrap gap-5 sm:gap-7 items-start">
               {partnerList.map((p) => {
                 const stats = mySatisfaction.per_partner[p.partner.id];
-                const pct = stats?.pref_pct != null ? stats.pref_pct * 100 : 0;
+                const pct = stats?.pref_pct != null ? stats.pref_pct : 0;
                 return (
                   <SatisfactionRing
                     key={p.partnershipId}
