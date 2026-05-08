@@ -220,6 +220,16 @@ scheduleRoutes.post(
       await pushHoldEventForParticipant(block, me.id);
     } else if (response === 'declined') {
       await cancelEventForParticipant(id, me.id);
+      // Flip the block's status so parallel cycles can stop treating it
+      // as a soft claim. (See loadCommittedBlocks in cycle.manager.ts —
+      // declined blocks are excluded from the busy set so the next cycle
+      // can re-propose into the freed window.)
+      if (block && block.status !== 'declined' && block.status !== 'reshuffled') {
+        await db
+          .update(timeBlocks)
+          .set({ status: 'declined' })
+          .where(eq(timeBlocks.id, id));
+      }
     }
 
     // If all participants accepted, mark block accepted AND drop the HOLD

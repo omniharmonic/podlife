@@ -1,17 +1,10 @@
-import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { call, deletePerson, newApp, uniqueEmail } from './utils.ts';
-import { config } from '../src/lib/config.ts';
 
-let optimizerReachable = false;
-
-beforeAll(async () => {
-  try {
-    const r = await fetch(`${config.optimizerUrl}/health`);
-    optimizerReachable = r.ok;
-  } catch {
-    optimizerReachable = false;
-  }
-});
+// The runtime defaults to the inline WASM HiGHS solver — no external
+// optimizer service required. (Earlier this test gated on
+// `OPTIMIZER_URL/health` and silently skipped whenever the legacy Python
+// service wasn't running, which made the e2e test invisible.)
 
 describe('schedule cycle (e2e)', () => {
   const created: string[] = [];
@@ -21,11 +14,7 @@ describe('schedule cycle (e2e)', () => {
 
   it(
     'two persons + partnership + manual avail → cycle proposes blocks',
-    async (ctx) => {
-      if (!optimizerReachable) {
-        ctx.skip();
-        return;
-      }
+    async () => {
       const app = newApp();
 
       // Two persons & sessions.
