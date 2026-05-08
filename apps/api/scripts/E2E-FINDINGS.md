@@ -79,6 +79,44 @@ This is the load-bearing insight from the stress run.
 - **Test gates on HTTP optimizer** — `tests/schedule.test.ts:25` skips when `OPTIMIZER_URL/health` is unreachable, but the runtime now defaults to inline WASM. The skip should be removed and the test made unconditional.
 - **`getInvolvedPersonIds` over-broadens cycles** — when triggered with a `podId`, it adds the trigger person's *all* active partners (even those not in the pod). For a Council cycle, that drags 7 people into a 5-person pod scope. Reasonable for "schedule my whole life", surprising if the user thinks they're scheduling just this pod. Worth a UX clarification, not an immediate code fix.
 
+## Follow-up: cross-cycle soft-claim implemented
+
+Implemented the `claimed` semantics (without renaming the status — the
+existing `proposed` already means "the optimizer staked a claim, humans
+haven't replied yet"). `loadLockedBlocks` was renamed to
+`loadCommittedBlocks` and now treats any block from another cycle whose
+status is `proposed`, `accepted`, or `locked` as soft-busy. A user
+declining a block flips its status to `declined`, freeing the window for
+the next cycle.
+
+**Stress-run impact (concurrent scenario):**
+
+| metric | before | after |
+|---|---|---|
+| Council pod proposed blocks | 12 (over-promised) | 6 (honest) |
+| Cross-cycle collisions | **18** | **6** |
+| Council mean satisfaction | 100% (false) | 98% (real) |
+
+The remaining 6 collisions in concurrent are a true race — the 4 cycles
+fire via `Promise.all` and all read `loadCommittedBlocks` within the
+same millisecond, before any of them persists. Sequential and staggered
+scenarios show **0 collisions** end-to-end. Real-world traffic almost
+never triggers 4 pods in <5ms; this gap closes with a per-person
+Postgres advisory lock around `processCycleJob` if we ever need it. Not
+worth implementing today.
+
+The other follow-ups were addressed:
+
+- **Privacy filter** — already used `\b…\b` correctly; the earlier test
+  failure was test pollution from my stress fixture's `Hearth` pod name
+  matching the word "Hearth" in the test message. Pinned with
+  `tests/privacy-substring.test.ts`.
+- **schedule.test.ts skip** — removed; runs unconditionally against the
+  inline WASM solver now.
+- **getInvolvedPersonIds scope** — pod-scoped cycles now resolve to that
+  pod's members only. Whole-life mode (no `podId`) is unchanged. Pinned
+  with `tests/cycle-scope.test.ts`.
+
 ## Files added / changed in this work
 
 - `apps/api/src/modules/schedule/cycle.manager.ts` — idempotency guard

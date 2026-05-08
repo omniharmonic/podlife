@@ -210,7 +210,6 @@ async function seedWorld(): Promise<{
         personBId: second,
         invitedBy: aId,
         status: 'active',
-        startedAt: new Date(),
       })
       .returning();
     if (!row) throw new Error(`partnership insert failed for ${ps.a}/${ps.b}`);

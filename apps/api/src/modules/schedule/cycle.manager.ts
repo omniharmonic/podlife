@@ -80,13 +80,34 @@ export async function triggerCycle(input: TriggerInput): Promise<TriggerResult> 
   return { cycleId: cycle.id };
 }
 
+/**
+ * Resolve which persons participate in this cycle.
+ *
+ *   - **Pod-scoped** (`podId` given): just that pod's active members. We
+ *     no longer drag in the trigger's non-pod partners — that was the
+ *     "scheduling Council also schedules my Hearth dates" surprise found
+ *     by the multi-pod stress run. Partnerships *between* pod members are
+ *     still scheduled because both endpoints are in the involved set.
+ *   - **Whole-life** (no `podId`): trigger + all active partners + every
+ *     pod member from every pod the trigger is in. Used by the home
+ *     "Find time" button.
+ */
 export async function getInvolvedPersonIds(
   personId: string,
   podId?: string,
 ): Promise<string[]> {
   const set = new Set<string>([personId]);
 
-  // All active partners.
+  if (podId) {
+    const podMemberRows = await db
+      .select()
+      .from(podMembers)
+      .where(and(eq(podMembers.podId, podId), isNotNull(podMembers.joinedAt)));
+    for (const m of podMemberRows) set.add(m.personId);
+    return Array.from(set);
+  }
+
+  // Whole-life mode: include all of the trigger's active partners…
   const partners = await db
     .select()
     .from(partnerships)
@@ -101,17 +122,17 @@ export async function getInvolvedPersonIds(
     set.add(p.personBId);
   }
 
-  // If pod-scoped, add pod members; otherwise include all pods this person is in.
-  const memberRows = await db
+  // …plus every member of every pod the trigger is in.
+  const myPodRows = await db
     .select()
     .from(podMembers)
     .where(and(eq(podMembers.personId, personId), isNotNull(podMembers.joinedAt)));
-  const podIds = podId ? [podId] : memberRows.map((m) => m.podId);
-  if (podIds.length > 0) {
+  const myPodIds = myPodRows.map((m) => m.podId);
+  if (myPodIds.length > 0) {
     const allMembers = await db
       .select()
       .from(podMembers)
-      .where(and(inArray(podMembers.podId, podIds), isNotNull(podMembers.joinedAt)));
+      .where(and(inArray(podMembers.podId, myPodIds), isNotNull(podMembers.joinedAt)));
     for (const m of allMembers) set.add(m.personId);
   }
   return Array.from(set);
@@ -200,7 +221,7 @@ export async function processCycleJob(data: { cycleId: string }): Promise<unknow
     const partnerPrefs = await loadPartnerPreferences(cycle.personIds);
     const podGatherings = await loadPodGatheringPrefs(cycle.personIds);
     const subgroupPrefs = await loadSubgroupPrefs(cycle.personIds);
-    const lockedBlocks = await loadLockedBlocks(cycle.id, cycle.horizonStart, cycle.horizonEnd);
+    const lockedBlocks = await loadCommittedBlocks(cycle.id, cycle.horizonStart, cycle.horizonEnd);
     const types = await loadEventTypes();
 
     const req: OptimizationRequest = {
@@ -465,7 +486,22 @@ async function loadSubgroupPrefs(personIds: string[]): Promise<OptimizerSubgroup
   return out;
 }
 
-async function loadLockedBlocks(
+/**
+ * Soft-claim cross-cycle busy windows. Returns every time block from a
+ * *different* cycle that's still alive — proposed (the optimizer staked
+ * a claim, humans haven't replied yet), accepted (some humans have),
+ * or locked (everyone has). Declined and reshuffled blocks are
+ * excluded so freed windows can be re-proposed.
+ *
+ * Why this matters: when two pods overlap on members and their cycles
+ * run concurrently, parallel cycles used to over-promise on the same
+ * windows because only `locked` blocks were visible across cycles. By
+ * treating any non-declined block from another cycle as soft-busy, we
+ * avoid over-scheduling shared people. The tradeoff is mild: if a user
+ * declines a proposed block, a brief window can pass before the next
+ * cycle re-considers it. Acceptable — re-running the cycle restores it.
+ */
+async function loadCommittedBlocks(
   cycleId: string,
   horizonStart: Date,
   horizonEnd: Date,
@@ -480,7 +516,7 @@ async function loadLockedBlocks(
     .where(
       and(
         ne(timeBlocks.cycleId, cycleId),
-        eq(timeBlocks.status, 'locked'),
+        inArray(timeBlocks.status, ['proposed', 'accepted', 'locked']),
         gte(timeBlocks.endTime, horizonStart),
         lte(timeBlocks.startTime, horizonEnd),
       ),
