@@ -103,20 +103,28 @@ export function LoginPage() {
             />
           </motion.div>
 
-          <p className="eyebrow text-ink-500 mb-4">An honest accounting of time</p>
-
-          {/* The tagline — the load-bearing typographic moment */}
+          {/* The wordmark is the typographic anchor — uprights, generous,
+              the page asserts what it is before saying anything else. */}
           <motion.h1
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.18 }}
-            className="font-display italic text-ink-800 text-[2.75rem] sm:text-[4.25rem] leading-[0.94] tracking-[-0.01em] mb-3"
-            style={{ fontVariationSettings: "'opsz' 144, 'SOFT' 60, 'wght' 380" }}
+            transition={{ duration: 0.7, delay: 0.12 }}
+            className="font-display text-ink-900 text-[3.4rem] sm:text-[5.5rem] leading-[0.95] tracking-[-0.015em] mb-2"
+            style={{ fontVariationSettings: "'opsz' 144, 'SOFT' 50, 'wght' 380" }}
           >
-            I want
-            <br />
-            what you want.
+            Pod Life
           </motion.h1>
+
+          {/* The tagline — italic subhead that names the principle. */}
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.22 }}
+            className="font-display italic text-ink-600 text-2xl sm:text-3xl leading-[1.15] tracking-[-0.005em]"
+            style={{ fontVariationSettings: "'opsz' 60, 'SOFT' 70, 'wght' 360" }}
+          >
+            I want what you want.
+          </motion.p>
 
           <Flourish variant="laurel" className="w-32 h-7 text-ink-300 my-7" />
 
@@ -126,7 +134,7 @@ export function LoginPage() {
             transition={{ duration: 0.6, delay: 0.32 }}
             className="text-ink-700 max-w-md mb-2 leading-[1.7] text-[15.5px]"
           >
-            A small instrument for the people who love more than one person —
+            Care infrastructure for the people who love more than one person —
             and want to actually show up for all of them.
           </motion.p>
           <motion.p

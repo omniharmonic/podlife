@@ -29,6 +29,7 @@ import {
 export interface PodHealthMember {
   personId: string;
   displayName: string;
+  avatarUrl: string | null;
   weeklyHoursWanted: number;
   weeklyHoursScheduled: number;
   satisfactionPct: number;
@@ -49,6 +50,7 @@ export async function getPodHealth(podId: string): Promise<PodHealthResponse> {
     .select({
       personId: podMembers.personId,
       displayName: persons.displayName,
+      avatarUrl: persons.avatarUrl,
     })
     .from(podMembers)
     .innerJoin(persons, eq(persons.id, podMembers.personId))
@@ -164,6 +166,7 @@ export async function getPodHealth(podId: string): Promise<PodHealthResponse> {
     return {
       personId: m.personId,
       displayName: m.displayName,
+      avatarUrl: m.avatarUrl,
       weeklyHoursWanted: wanted,
       weeklyHoursScheduled: scheduled,
       satisfactionPct: round2(satisfactionPct),

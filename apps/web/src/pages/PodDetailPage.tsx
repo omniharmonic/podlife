@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { parseISO, isSameDay, formatDistanceToNow } from 'date-fns';
@@ -75,10 +75,18 @@ export function PodDetailPage() {
   const blocks = proposals.data?.proposals ?? [];
 
   const messages = chat.data?.messages ?? [];
+  const messagesRef = useRef<HTMLDivElement | null>(null);
+  // Pin to bottom when new messages arrive — feels like a real chat thread.
+  useEffect(() => {
+    const el = messagesRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages.length]);
   const members = pod.data?.members ?? [];
   const memberByPersonId = useMemo(() => {
-    const m = new Map<string, { displayName: string }>();
-    for (const mem of members) m.set(mem.personId, { displayName: mem.displayName });
+    const m = new Map<string, { displayName: string; avatarUrl: string | null }>();
+    for (const mem of members) {
+      m.set(mem.personId, { displayName: mem.displayName, avatarUrl: mem.avatarUrl });
+    }
     return m;
   }, [members]);
 
@@ -130,7 +138,7 @@ export function PodDetailPage() {
                   key={m.personId}
                   className="flex items-center gap-2 bg-cream border border-ink-100/60 rounded-full pl-1 pr-3 py-1"
                 >
-                  <Avatar name={m.displayName} size={26} />
+                  <Avatar name={m.displayName} src={m.avatarUrl ?? undefined} size={26} />
                   <span className="text-[13px] text-ink-700 font-medium">
                     {isMe ? 'You' : m.displayName.split(/\s+/)[0]}
                   </span>
@@ -351,6 +359,61 @@ export function PodDetailPage() {
           )}
         </div>
 
+        {/*
+         * Messages live above the composer in a bounded, scrollable box —
+         * like a real chat. The cap (~320px) keeps long threads from
+         * eating the whole page; the inner div scrolls. Auto-pinned to
+         * bottom on new messages via the ref + effect above.
+         */}
+        {messages.length === 0 ? (
+          <Card as="dashed" padding="md">
+            <p className="text-sm text-ink-500">
+              {chat.isLoading ? 'Listening…' : 'No messages yet. Start the thread.'}
+            </p>
+          </Card>
+        ) : (
+          <div
+            ref={messagesRef}
+            className="bg-parchment/60 border border-ink-100/60 rounded-2xl p-3 max-h-[320px] overflow-y-auto"
+          >
+            <ul className="flex flex-col gap-2">
+              {messages.map((m) => {
+                const isMe = m.authorId === person?.id;
+                const member = memberByPersonId.get(m.authorId);
+                const displayName = member?.displayName ?? m.authorName;
+                const avatarUrl = member?.avatarUrl ?? null;
+                return (
+                  <li
+                    key={m.id}
+                    className={`flex gap-2.5 ${isMe ? 'flex-row-reverse' : ''}`}
+                  >
+                    <Avatar name={displayName} src={avatarUrl ?? undefined} size={32} />
+                    <div className={`max-w-[80%] ${isMe ? 'items-end' : 'items-start'} flex flex-col gap-1`}>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-[13px] font-medium text-ink-800">
+                          {isMe ? 'You' : displayName.split(/\s+/)[0]}
+                        </span>
+                        <span className="text-[10px] text-ink-400">
+                          {formatDistanceToNow(parseISO(m.createdAt), { addSuffix: true })}
+                        </span>
+                      </div>
+                      <div
+                        className={`px-3.5 py-2 rounded-2xl text-[15px] leading-relaxed whitespace-pre-wrap ${
+                          isMe
+                            ? 'bg-terracotta-500 text-cream rounded-tr-sm'
+                            : 'bg-cream border border-ink-100/60 text-ink-800 rounded-tl-sm'
+                        }`}
+                      >
+                        {m.body}
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+
         <form
           onSubmit={handleSendChat}
           className="bg-cream border border-ink-100/60 rounded-2xl p-3 flex flex-col gap-2 shadow-paper"
@@ -373,49 +436,6 @@ export function PodDetailPage() {
             </Button>
           </div>
         </form>
-
-        {messages.length === 0 ? (
-          <Card as="dashed" padding="md">
-            <p className="text-sm text-ink-500">
-              {chat.isLoading ? 'Listening…' : 'No messages yet. Start the thread.'}
-            </p>
-          </Card>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {messages.map((m) => {
-              const isMe = m.authorId === person?.id;
-              const member = memberByPersonId.get(m.authorId);
-              const displayName = member?.displayName ?? m.authorName;
-              return (
-                <li
-                  key={m.id}
-                  className={`flex gap-2.5 ${isMe ? 'flex-row-reverse' : ''}`}
-                >
-                  <Avatar name={displayName} size={32} />
-                  <div className={`max-w-[80%] ${isMe ? 'items-end' : 'items-start'} flex flex-col gap-1`}>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-[13px] font-medium text-ink-800">
-                        {isMe ? 'You' : displayName.split(/\s+/)[0]}
-                      </span>
-                      <span className="text-[10px] text-ink-400">
-                        {formatDistanceToNow(parseISO(m.createdAt), { addSuffix: true })}
-                      </span>
-                    </div>
-                    <div
-                      className={`px-3.5 py-2 rounded-2xl text-[15px] leading-relaxed whitespace-pre-wrap ${
-                        isMe
-                          ? 'bg-terracotta-500 text-cream rounded-tr-sm'
-                          : 'bg-cream border border-ink-100/60 text-ink-800 rounded-tl-sm'
-                      }`}
-                    >
-                      {m.body}
-                    </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
       </section>
     </motion.div>
   );

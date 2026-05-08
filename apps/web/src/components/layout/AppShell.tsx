@@ -20,13 +20,18 @@ export function AppShell({ children }: AppShellProps) {
   const toast = useUiStore((s) => s.toast);
   const dismissToast = useUiStore((s) => s.dismissToast);
   const podsList = usePodsList();
-  // Adaptive nav label: singular when the user has exactly one pod.
+  // Adaptive nav: when the user has exactly one pod, the tab links straight
+  // to that pod's detail page (and labels singular). With multiple, it links
+  // to the list. The list-route (`/pods`) is also kept active for any
+  // `/pods/:id` visit so the tab highlights consistently.
   const podCount = podsList.data?.length ?? 0;
+  const onlyPod = podCount === 1 ? podsList.data?.[0] : null;
+  const podHref = onlyPod ? `/pods/${onlyPod.id}` : '/pods';
   const nav = [
     { to: '/home', label: 'Home', icon: HomeIcon, end: true },
     { to: '/calendar', label: 'Calendar', icon: CalendarIcon },
     { to: '/partners', label: 'Partners', icon: HeartIcon },
-    { to: '/pods', label: podCount === 1 ? 'Pod' : 'Pods', icon: PodIcon },
+    { to: podHref, label: onlyPod ? 'Pod' : 'Pods', icon: PodIcon },
     { to: '/settings', label: 'Settings', icon: GearIcon },
   ];
 

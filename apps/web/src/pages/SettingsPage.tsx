@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { addDays } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
@@ -7,12 +8,16 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { Toggle } from '@/components/ui/Toggle';
+import { Modal } from '@/components/ui/Modal';
 import { EditorialHeading } from '@/components/ui/EditorialHeading';
 import { useSetManualAvailability } from '@/hooks/useAvailability';
+import { usePodsList, useCreatePod } from '@/hooks/usePods';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { me as meApi, getSessionToken, calendars as calendarsApi } from '@/lib/api';
 import { useUiStore } from '@/stores/ui.store';
 import { format, getWeekStart } from '@/lib/dates';
+
+const POD_EMOJIS = ['🏠', '🌳', '🌻', '🪴', '🍃', '🌿', '🌞', '🌙', '✨', '🔥'];
 
 const COMMON_TZ = [
   'America/Los_Angeles',
@@ -153,6 +158,41 @@ export function SettingsPage() {
     setWindows((ws) => [...ws, { day: 0, start: '18:00', end: '22:00' }]);
   }
 
+  // Pods — managed from Settings so single-pod users have a clear place
+  // to add another without cluttering /pods (which auto-redirects when
+  // they only have one). Multi-pod users can also use the list page.
+  const podsList = usePodsList();
+  const createPod = useCreatePod();
+  const [podModalOpen, setPodModalOpen] = useState(false);
+  const [podName, setPodName] = useState('');
+  const [podEmoji, setPodEmoji] = useState('🏠');
+  const [podMemberEmails, setPodMemberEmails] = useState('');
+
+  async function onCreatePod(e?: React.FormEvent) {
+    e?.preventDefault();
+    if (!podName.trim()) return;
+    try {
+      await createPod.mutateAsync({
+        name: podName.trim(),
+        emoji: podEmoji,
+        memberEmails: podMemberEmails
+          .split(/[,\n]/)
+          .map((s) => s.trim())
+          .filter(Boolean),
+      });
+      showToast(`Pod "${podName.trim()}" created`, 'success');
+      setPodModalOpen(false);
+      setPodName('');
+      setPodEmoji('🏠');
+      setPodMemberEmails('');
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : 'Could not create pod',
+        'error',
+      );
+    }
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 6 }}
@@ -212,6 +252,34 @@ export function SettingsPage() {
             </Button>
           </div>
         </form>
+      </Section>
+
+      {/* Pods */}
+      <Section title="Pods">
+        <p className="text-sm text-ink-500 mb-4">
+          A pod is a named group — your nesting partners, a co-living crew,
+          a chosen family. Time gets scheduled inside a pod.
+        </p>
+        <div className="flex flex-col gap-2">
+          {(podsList.data ?? []).map((pod) => (
+            <Link
+              key={pod.id}
+              to={`/pods/${pod.id}`}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-ink-100/60 bg-cream hover:bg-parchment transition-colors"
+            >
+              <span className="text-xl" aria-hidden="true">{pod.emoji ?? '🏠'}</span>
+              <span className="font-display text-ink-800 text-lg flex-1 truncate">
+                {pod.name}
+              </span>
+              <span className="text-ink-300 text-lg" aria-hidden="true">→</span>
+            </Link>
+          ))}
+        </div>
+        <div className="mt-4">
+          <Button variant="ghost" onClick={() => setPodModalOpen(true)}>
+            {(podsList.data?.length ?? 0) === 0 ? 'Create your first pod' : 'Add a pod'}
+          </Button>
+        </div>
       </Section>
 
       {/* Calendars */}
@@ -342,6 +410,63 @@ export function SettingsPage() {
           </Button>
         </div>
       </Section>
+
+      <Modal
+        open={podModalOpen}
+        onClose={() => setPodModalOpen(false)}
+        title="Create a pod"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setPodModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={onCreatePod}
+              loading={createPod.isPending}
+              disabled={!podName.trim()}
+            >
+              Create
+            </Button>
+          </>
+        }
+      >
+        <form onSubmit={onCreatePod} className="flex flex-col gap-6">
+          <Input
+            label="Pod name"
+            placeholder="e.g., Home Base"
+            value={podName}
+            onChange={(e) => setPodName(e.currentTarget.value)}
+            required
+          />
+          <div>
+            <span className="eyebrow text-ink-500 mb-2 block">Emoji</span>
+            <div className="flex flex-wrap gap-2">
+              {POD_EMOJIS.map((e) => (
+                <button
+                  type="button"
+                  key={e}
+                  onClick={() => setPodEmoji(e)}
+                  className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl border transition-all ${
+                    podEmoji === e
+                      ? 'bg-terracotta-50 border-terracotta-500 scale-105'
+                      : 'bg-cream border-ink-100 hover:bg-ink-50'
+                  }`}
+                  aria-label={`Choose emoji ${e}`}
+                >
+                  {e}
+                </button>
+              ))}
+            </div>
+          </div>
+          <Input
+            label="Invite members (optional)"
+            placeholder="email@example.com, another@example.com"
+            value={podMemberEmails}
+            onChange={(e) => setPodMemberEmails(e.currentTarget.value)}
+            hint="Separate emails with commas. They'll receive an invitation."
+          />
+        </form>
+      </Modal>
     </motion.div>
   );
 }
