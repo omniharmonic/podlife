@@ -33,6 +33,11 @@ export default defineConfig({
         'icons/icon-512.png',
         'icons/icon-maskable-512.png',
         'icons/apple-touch-icon.png',
+        'icons/apple-touch-icon-180.png',
+        'icons/apple-touch-icon-167.png',
+        'icons/apple-touch-icon-152.png',
+        'icons/apple-touch-icon-120.png',
+        'icons/apple-touch-icon-precomposed.png',
       ],
       manifest: {
         name: 'Pod Life',
