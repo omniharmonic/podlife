@@ -12,7 +12,7 @@
  *      6. Persist proposed time blocks + satisfaction report
  *      7. Notify participants
  */
-import { and, eq, inArray, gte, lte, isNotNull, isNull, ne, or } from 'drizzle-orm';
+import { and, eq, inArray, gte, lte, isNotNull, isNull, ne, or, sql } from 'drizzle-orm';
 import type {
   OptimizationRequest,
   OptimizationResponse,
@@ -218,23 +218,13 @@ export async function processCycleJob(data: { cycleId: string }): Promise<unknow
       });
     }
 
+    // External / slow reads happen *outside* the lock-tx so we don't hold
+    // a Postgres connection while waiting on Redis or the calendar OAuth
+    // provider. None of these depend on locked-block freshness.
     const partnerPrefs = await loadPartnerPreferences(cycle.personIds);
     const podGatherings = await loadPodGatheringPrefs(cycle.personIds);
     const subgroupPrefs = await loadSubgroupPrefs(cycle.personIds);
-    const lockedBlocks = await loadCommittedBlocks(cycle.id, cycle.horizonStart, cycle.horizonEnd);
     const types = await loadEventTypes();
-
-    const req: OptimizationRequest = {
-      horizon_start: cycle.horizonStart.toISOString(),
-      horizon_end: cycle.horizonEnd.toISOString(),
-      persons: personSpecs,
-      partner_preferences: partnerPrefs,
-      pod_gatherings: podGatherings,
-      subgroup_prefs: subgroupPrefs,
-      event_types: types,
-      locked_blocks: lockedBlocks,
-      slot_duration_minutes: 30,
-    };
 
     // Optimizer transport selection:
     //   - Default: inline WASM solver (zero infra cost; no HTTP hop).
@@ -248,23 +238,80 @@ export async function processCycleJob(data: { cycleId: string }): Promise<unknow
       transport: useHttpOptimizer ? `http:${config.optimizerUrl}` : 'inline-wasm',
     });
 
-    let out: OptimizationResponse;
-    if (useHttpOptimizer) {
-      const res = await fetch(`${config.optimizerUrl}/optimize`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(req),
-      });
-      if (!res.ok) {
-        throw new Error(`Optimizer returned ${res.status}: ${await res.text()}`);
-      }
-      out = (await res.json()) as OptimizationResponse;
-    } else {
-      out = await solveInline(req);
-    }
-
-    // Persist proposed blocks and satisfaction report.
+    // Critical section. Holds a per-person advisory lock for every
+    // participant in this cycle while we re-read committed blocks, run
+    // the solver, and persist proposals. Locks are acquired in sorted
+    // order so two cycles touching overlapping persons can't deadlock —
+    // they wait, run sequentially, and each sees the other's persisted
+    // proposals via loadCommittedBlocks once the prior tx commits.
+    //
+    // Why advisory and not a row-lock on persons? Advisory locks are
+    // free-standing (no row needs to be touched), survive reads and
+    // writes uniformly, and release automatically at tx end. Postgres'
+    // hashtext() collapses each person.id to int4 — collisions are
+    // ~10^-5 at 100k users which we accept (a collision means a brief
+    // unnecessary serialization of two unrelated cycles).
+    //
+    // lock_timeout fails the tx fast if someone holds a lock too long
+    // (e.g. a buggy long solver run or a leaked tx); the queue then
+    // retries the cycle. Without it a hung cycle would block all
+    // overlapping work indefinitely.
+    // Definite-assignment assertion: out is always assigned inside the
+    // tx callback before the tx commits; if the callback throws we never
+    // reach the post-tx code anyway.
+    let out!: OptimizationResponse;
     await db.transaction(async (tx) => {
+      // 60s should comfortably cover the longest expected solver run
+      // (5s budget + DB roundtrips), while still bailing fast on a
+      // genuine wedge.
+      await tx.execute(sql`SET LOCAL lock_timeout = '60s'`);
+      const sortedPersonIds = [...cycle.personIds].sort();
+      for (const pid of sortedPersonIds) {
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${pid}))`);
+      }
+
+      // Re-read committed blocks NOW that we hold the locks. Anything
+      // another cycle persisted before we got here is visible; anything
+      // it persists after will block on these locks until our tx ends.
+      const lockedBlocks = await loadCommittedBlocksTx(
+        tx,
+        cycle.id,
+        cycle.horizonStart,
+        cycle.horizonEnd,
+      );
+
+      const req: OptimizationRequest = {
+        horizon_start: cycle.horizonStart.toISOString(),
+        horizon_end: cycle.horizonEnd.toISOString(),
+        persons: personSpecs,
+        partner_preferences: partnerPrefs,
+        pod_gatherings: podGatherings,
+        subgroup_prefs: subgroupPrefs,
+        event_types: types,
+        locked_blocks: lockedBlocks,
+        slot_duration_minutes: 30,
+      };
+
+      // Solver runs inside the tx — it's CPU-only (WASM HiGHS), no DB
+      // queries, so the held connection is idle on the wire while
+      // computing. Tradeoff: ~150–500ms of held connection per cycle in
+      // exchange for serialized writes against the same persons.
+      if (useHttpOptimizer) {
+        const res = await fetch(`${config.optimizerUrl}/optimize`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(req),
+        });
+        if (!res.ok) {
+          throw new Error(`Optimizer returned ${res.status}: ${await res.text()}`);
+        }
+        out = (await res.json()) as OptimizationResponse;
+      } else {
+        out = await solveInline(req);
+      }
+
+      // Persist proposed blocks and satisfaction report inside the same
+      // tx so the inserts and the lock release atomically.
       for (const block of out.proposed_blocks) {
         const [tb] = await tx
           .insert(timeBlocks)
@@ -501,12 +548,18 @@ async function loadSubgroupPrefs(personIds: string[]): Promise<OptimizerSubgroup
  * declines a proposed block, a brief window can pass before the next
  * cycle re-considers it. Acceptable — re-running the cycle restores it.
  */
-async function loadCommittedBlocks(
+// Accept either the top-level db handle or a transaction, so the
+// concurrency-critical read inside processCycleJob's lock-tx can use
+// the same code path. Both shapes implement `.select()` identically.
+type DbOrTx = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+async function loadCommittedBlocksTx(
+  conn: DbOrTx,
   cycleId: string,
   horizonStart: Date,
   horizonEnd: Date,
 ): Promise<OptimizerLockedBlock[]> {
-  const rows = await db
+  const rows = await conn
     .select({
       id: timeBlocks.id,
       startTime: timeBlocks.startTime,
@@ -523,7 +576,7 @@ async function loadCommittedBlocks(
     );
   const out: OptimizerLockedBlock[] = [];
   for (const tb of rows) {
-    const parts = await db
+    const parts = await conn
       .select({ personId: timeBlockParticipants.personId })
       .from(timeBlockParticipants)
       .where(eq(timeBlockParticipants.timeBlockId, tb.id));
