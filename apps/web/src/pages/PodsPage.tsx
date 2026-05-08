@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { usePodsList, useCreatePod } from '@/hooks/usePods';
 import { Button } from '@/components/ui/Button';
@@ -12,9 +12,10 @@ import { useUiStore } from '@/stores/ui.store';
 const POD_EMOJIS = ['🏠', '🌳', '🌻', '🪴', '🍃', '🌿', '🌞', '🌙', '✨', '🔥'];
 
 /**
- * Pods list. Always renders the list (no auto-redirect) so the user can
- * always create another pod or pick between pods. The bottom nav adapts
- * the label "Pod" / "Pods" based on count.
+ * Pods list. When the user has exactly one pod we redirect to its detail
+ * page — the list view is only meaningful with multiple pods. The "Add a
+ * pod" CTA lives on Settings when count ≤ 1; this page only shows "New
+ * pod" once there's already a list to add to.
  */
 export function PodsPage() {
   const list = usePodsList();
@@ -27,6 +28,12 @@ export function PodsPage() {
   const [memberEmails, setMemberEmails] = useState('');
 
   const pods = list.data ?? [];
+
+  // Single-pod users always go straight to that pod. The "Add a pod" CTA
+  // lives on Settings, so the list view only matters with 2+ pods.
+  if (!list.isLoading && pods.length === 1) {
+    return <Navigate to={`/pods/${pods[0]!.id}`} replace />;
+  }
 
   async function onCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -61,15 +68,12 @@ export function PodsPage() {
       className="px-5 sm:px-8 py-6 sm:py-8 flex flex-col gap-7"
     >
       <header className="flex items-end justify-between gap-3">
-        <EditorialHeading
-          level={1}
-          eyebrow={pods.length === 1 ? 'Your pod' : 'Your pods'}
-        >
-          {pods.length === 1 ? pods[0]!.name : 'Pods'}
+        <EditorialHeading level={1} eyebrow="Your pods">
+          Pods
         </EditorialHeading>
-        <Button onClick={() => setOpen(true)}>
-          {pods.length === 0 ? 'New pod' : pods.length === 1 ? 'Add another pod' : 'New pod'}
-        </Button>
+        {pods.length > 0 && (
+          <Button onClick={() => setOpen(true)}>New pod</Button>
+        )}
       </header>
 
       {list.isLoading ? (

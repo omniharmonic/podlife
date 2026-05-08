@@ -241,7 +241,7 @@ export const partners = {
 };
 
 type PodWithMembers = Pod & {
-  members: Array<{ personId: string; displayName: string; role: string }>;
+  members: Array<{ personId: string; displayName: string; avatarUrl: string | null; role: string }>;
 };
 
 export const pods = {
@@ -461,6 +461,7 @@ export interface PodNote {
 export interface PodHealthMember {
   personId: string;
   displayName: string;
+  avatarUrl: string | null;
   weeklyHoursWanted: number;
   weeklyHoursScheduled: number;
   satisfactionPct: number;

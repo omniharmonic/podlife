@@ -400,7 +400,7 @@ function PodHealthCard({ podId, podName }: PodHealthCardProps) {
             <div className="flex-1 min-w-0 flex flex-wrap gap-3">
               {data.members.map((m) => (
                 <div key={m.personId} className="flex items-center gap-2">
-                  <Avatar name={m.displayName} size={32} />
+                  <Avatar name={m.displayName} src={m.avatarUrl ?? undefined} size={32} />
                   <div className="flex flex-col leading-tight">
                     <span className="text-[12.5px] text-ink-800 font-medium truncate max-w-[120px]">
                       {m.displayName.split(/\s+/)[0]}
