@@ -14,6 +14,7 @@
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
+    "migrate:if-prod": "node scripts/migrate-if-prod.mjs",
     "db:seed": "tsx src/db/seed.ts",
     "db:reset": "tsx src/db/reset.ts",
     "telegram:set-webhook": "tsx src/modules/telegram/set-webhook.ts"

@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "buildCommand": "pnpm --filter @pod-life/shared build && pnpm --filter @pod-life/api build && pnpm --filter @pod-life/web build",
+  "buildCommand": "pnpm --filter @pod-life/shared build && pnpm --filter @pod-life/api build && pnpm --filter @pod-life/api migrate:if-prod && pnpm --filter @pod-life/web build",
   "outputDirectory": "apps/web/dist",
   "installCommand": "pnpm install --frozen-lockfile",
   "functions": {
