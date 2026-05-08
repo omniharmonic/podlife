@@ -186,7 +186,7 @@ export function HomePage() {
         {mySat && (
           <div className="hidden sm:flex">
             <SatisfactionRing
-              pct={mySat.overall_pct * 100}
+              pct={mySat.overall_pct}
               size={64}
               label="for you"
             />

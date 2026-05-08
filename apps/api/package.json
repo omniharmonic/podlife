@@ -17,7 +17,8 @@
     "migrate:if-prod": "node scripts/migrate-if-prod.mjs",
     "db:seed": "tsx src/db/seed.ts",
     "db:reset": "tsx src/db/reset.ts",
-    "telegram:set-webhook": "tsx src/modules/telegram/set-webhook.ts"
+    "telegram:set-webhook": "tsx src/modules/telegram/set-webhook.ts",
+    "e2e:stress": "tsx scripts/e2e-stress.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",

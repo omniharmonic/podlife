@@ -90,7 +90,7 @@ export function PartnersPage() {
         <div className="flex flex-col gap-4">
           {list.map((p, i) => {
             const stats = satisfactionByPerson[p.partner.id];
-            const pct = stats?.pref_pct != null ? stats.pref_pct * 100 : undefined;
+            const pct = stats?.pref_pct != null ? stats.pref_pct : undefined;
             const nextAt = nextBlockByPartnership.get(p.partnershipId);
             return (
               <motion.div

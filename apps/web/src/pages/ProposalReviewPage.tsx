@@ -139,7 +139,7 @@ export function ProposalReviewPage() {
         <div className="flex items-center gap-2">
           <ExplainScheduleButton size="sm" />
           {mySat && (
-            <SatisfactionRing pct={mySat.overall_pct * 100} size={64} label="for you" />
+            <SatisfactionRing pct={mySat.overall_pct} size={64} label="for you" />
           )}
         </div>
       </header>
@@ -156,7 +156,7 @@ export function ProposalReviewPage() {
               return (
                 <div key={partnerId} className="flex flex-col items-center gap-1">
                   <SatisfactionRing
-                    pct={(stats.pref_pct ?? 0) * 100}
+                    pct={stats.pref_pct ?? 0}
                     color={partner?.color}
                     size={56}
                     label={partner?.partner.displayName ?? 'Partner'}
