@@ -1,6 +1,6 @@
 # Pod Life — Multi-Pod E2E Stress Report
 
-_Generated 2026-05-08T07:02:13.100Z_
+_Generated 2026-05-08T07:36:40.701Z_
 
 ## Polycule shape
 - **People:** 15
@@ -11,29 +11,29 @@ _Generated 2026-05-08T07:02:13.100Z_
 
 ## Scenario: sequential
 
-Total wall-clock: **289 ms**
+Total wall-clock: **312 ms**
 
 | pod | proposed | sat μ | sat min | below-need | infeas | self-collisions | duration |
 |---|---|---|---|---|---|---|---|
-| Hearth | 9 | 100% | 100% | 4 | 0 | 0 | 161ms |
-| Garden | 5 | 83% | 64% | 4 | 2 | 0 | 47ms |
-| Volume | 0 | 0% | 0% | 4 | 7 | 0 | 35ms |
-| Council | 0 | 0% | 0% | 5 | 7 | 0 | 20ms |
+| Hearth | 9 | 100% | 100% | 4 | 0 | 0 | 171ms |
+| Garden | 5 | 83% | 64% | 4 | 2 | 0 | 52ms |
+| Volume | 0 | 0% | 0% | 4 | 7 | 0 | 36ms |
+| Council | 0 | 0% | 0% | 5 | 7 | 0 | 26ms |
 
 **Cross-cycle collisions:** 0 between proposed blocks, 0 between locked blocks.
 
 ## Scenario: concurrent
 
-Total wall-clock: **111 ms**
+Total wall-clock: **119 ms**
 
 | pod | proposed | sat μ | sat min | below-need | infeas | self-collisions | duration |
 |---|---|---|---|---|---|---|---|
-| Hearth | 9 | 100% | 100% | 4 | 0 | 0 | 105ms |
-| Garden | 5 | 83% | 64% | 4 | 2 | 0 | 108ms |
-| Volume | 0 | 0% | 0% | 4 | 7 | 0 | 98ms |
-| Council | 6 | 98% | 92% | 5 | 0 | 0 | 109ms |
+| Hearth | 9 | 100% | 100% | 4 | 0 | 0 | 103ms |
+| Garden | 5 | 83% | 64% | 4 | 2 | 0 | 106ms |
+| Volume | 0 | 0% | 0% | 4 | 7 | 0 | 95ms |
+| Council | 0 | 0% | 0% | 5 | 7 | 0 | 117ms |
 
-**Cross-cycle collisions:** 6 between proposed blocks, 0 between locked blocks.
+**Cross-cycle collisions:** 0 between proposed blocks, 0 between locked blocks.
 
 ## Scenario: staggered
 
@@ -41,9 +41,9 @@ Total wall-clock: **1233 ms**
 
 | pod | proposed | sat μ | sat min | below-need | infeas | self-collisions | duration |
 |---|---|---|---|---|---|---|---|
-| Hearth | 9 | 100% | 100% | 4 | 0 | 0 | 64ms |
-| Garden | 5 | 83% | 64% | 4 | 2 | 0 | 61ms |
-| Volume | 0 | 0% | 0% | 4 | 7 | 0 | 36ms |
-| Council | 0 | 0% | 0% | 5 | 7 | 0 | 33ms |
+| Hearth | 9 | 100% | 100% | 4 | 0 | 0 | 69ms |
+| Garden | 5 | 83% | 64% | 4 | 2 | 0 | 52ms |
+| Volume | 0 | 0% | 0% | 4 | 7 | 0 | 40ms |
+| Council | 0 | 0% | 0% | 5 | 7 | 0 | 34ms |
 
 **Cross-cycle collisions:** 0 between proposed blocks, 0 between locked blocks.

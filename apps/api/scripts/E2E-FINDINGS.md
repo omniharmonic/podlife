@@ -97,13 +97,39 @@ the next cycle.
 | Cross-cycle collisions | **18** | **6** |
 | Council mean satisfaction | 100% (false) | 98% (real) |
 
-The remaining 6 collisions in concurrent are a true race — the 4 cycles
-fire via `Promise.all` and all read `loadCommittedBlocks` within the
-same millisecond, before any of them persists. Sequential and staggered
-scenarios show **0 collisions** end-to-end. Real-world traffic almost
-never triggers 4 pods in <5ms; this gap closes with a per-person
-Postgres advisory lock around `processCycleJob` if we ever need it. Not
-worth implementing today.
+**Update — advisory locks shipped.** The weekly-cycle cron fires once
+per week and enqueues many cycles at once, so concurrent triggers from
+the same instant are the *normal* path under cron, not pathological. We
+closed the remaining 6 concurrent collisions with a Postgres advisory
+lock per person:
+
+- `processCycleJob` now wraps the read-committed-blocks → solve →
+  persist span in a single transaction.
+- Inside the tx we call `pg_advisory_xact_lock(hashtext(personId))` for
+  every participant, **sorted by id**, so any two cycles that share a
+  person serialize without deadlocking. Cycles on disjoint person sets
+  still parallelize.
+- `lock_timeout = '60s'` so a stuck solver won't block the queue
+  forever — the failing cycle fast-fails and BullMQ retries.
+- Slow external reads (Redis, calendar OAuth) stay outside the lock
+  span so we don't hold a connection waiting on the network.
+
+Stress run after the lock (`apps/api/scripts/e2e-stress-report.md`):
+
+| scenario | cross-cycle collisions before lock | after lock |
+|---|---|---|
+| sequential | 0 | 0 |
+| concurrent | 6 | **0** |
+| staggered | 0 | 0 |
+
+Two regression tests pin both halves of the contract
+(`tests/cycle-advisory-lock.test.ts`):
+- *Overlap serializes*: two cycles sharing a person, fired via
+  `Promise.all`, finish with zero cross-cycle collisions.
+- *Disjoint doesn't block*: a probe transaction holds person A's lock
+  for 1.5 s; a parallel cycle on disjoint persons {C, D} completes in
+  well under that window. If the lock granularity were too coarse, the
+  cycle would block until the probe released.
 
 The other follow-ups were addressed:
 
