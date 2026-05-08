@@ -329,6 +329,28 @@ export async function listPasskeys(personId: string): Promise<PasskeyListItem[]>
   }));
 }
 
+/**
+ * Remove every passkey on this account. Useful when stranded credentials
+ * accumulate from earlier broken-state enrollments — the user wipes the
+ * server side and re-enrolls a fresh device-side passkey.
+ */
+export async function deleteAllPasskeys(personId: string): Promise<number> {
+  const removed = await db
+    .delete(webauthnCredentials)
+    .where(eq(webauthnCredentials.personId, personId))
+    .returning();
+  if (removed.length > 0) {
+    await db.insert(auditLog).values({
+      personId,
+      action: 'passkey.delete-all',
+      resourceType: 'person',
+      resourceId: personId,
+      metadata: { count: removed.length },
+    });
+  }
+  return removed.length;
+}
+
 export async function deletePasskey(personId: string, passkeyId: string): Promise<boolean> {
   const result = await db
     .delete(webauthnCredentials)

@@ -27,7 +27,11 @@ import {
 import { NotFoundError } from '../../lib/errors.js';
 import { toPersonDto } from './persons.dto.js';
 import { cleanupRedisForPerson } from './persons.lifecycle.js';
-import { deletePasskey, listPasskeys } from '../auth/passkey.service.js';
+import {
+  deleteAllPasskeys,
+  deletePasskey,
+  listPasskeys,
+} from '../auth/passkey.service.js';
 
 export const personsRoutes = new Hono();
 
@@ -40,6 +44,15 @@ personsRoutes.get('/me/passkeys', async (c) => {
   const me = c.get('person');
   const passkeys = await listPasskeys(me.id);
   return c.json({ passkeys });
+});
+
+personsRoutes.delete('/me/passkeys', async (c) => {
+  // Wipes every passkey on the account. Recovery path for users who got
+  // stuck with stranded credentials from earlier broken enrollments.
+  // Always 200 so the client doesn't have to special-case "nothing to delete".
+  const me = c.get('person');
+  const removed = await deleteAllPasskeys(me.id);
+  return c.json({ ok: true, removed });
 });
 
 personsRoutes.delete('/me/passkeys/:id', async (c) => {

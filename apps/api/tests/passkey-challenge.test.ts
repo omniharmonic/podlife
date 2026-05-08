@@ -11,9 +11,11 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { db } from '../src/db/index.ts';
-import { webauthnChallenges } from '../src/db/schema.ts';
+import { webauthnChallenges, webauthnCredentials } from '../src/db/schema.ts';
 import {
   consumeChallenge,
+  deleteAllPasskeys,
+  listPasskeys,
   startPasskeyAuthentication,
 } from '../src/modules/auth/passkey.service.ts';
 import { createTestPerson, deletePerson, uniqueEmail } from './utils.ts';
@@ -63,6 +65,34 @@ describe('passkey challenge resolution', () => {
 
     const challenge = await consumeChallenge(personId, email, 'authenticate');
     expect(challenge).not.toBeNull();
+  });
+
+  it('deleteAllPasskeys removes only the calling person\'s passkeys', async () => {
+    const ownerEmail = uniqueEmail('passkey-wipe-owner');
+    const otherEmail = uniqueEmail('passkey-wipe-other');
+    createdEmails.push(ownerEmail, otherEmail);
+    const { personId: owner } = await createTestPerson(ownerEmail);
+    const { personId: other } = await createTestPerson(otherEmail);
+
+    // Seed two stranded credentials for the owner + one for someone else.
+    await db.insert(webauthnCredentials).values([
+      { personId: owner, credentialId: `cred-owner-1-${Date.now()}`, publicKey: 'aGk' },
+      { personId: owner, credentialId: `cred-owner-2-${Date.now()}`, publicKey: 'aGk' },
+      { personId: other, credentialId: `cred-other-${Date.now()}`, publicKey: 'aGk' },
+    ]);
+
+    const removed = await deleteAllPasskeys(owner);
+    expect(removed).toBe(2);
+
+    const ownerLeft = await listPasskeys(owner);
+    expect(ownerLeft).toHaveLength(0);
+
+    const otherLeft = await listPasskeys(other);
+    expect(otherLeft).toHaveLength(1);
+
+    // No-op safe: calling again returns 0, not an error.
+    const removedAgain = await deleteAllPasskeys(owner);
+    expect(removedAgain).toBe(0);
   });
 
   it('refuses to match a register-purpose challenge from another person', async () => {
