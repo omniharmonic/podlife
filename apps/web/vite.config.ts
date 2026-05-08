@@ -28,12 +28,18 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icon.svg'],
+      includeAssets: [
+        'icons/icon-192.png',
+        'icons/icon-512.png',
+        'icons/icon-maskable-512.png',
+        'icons/apple-touch-icon.png',
+      ],
       manifest: {
         name: 'Pod Life',
         short_name: 'Pod Life',
-        description: 'Relationship scheduling for polyamorous families.',
-        theme_color: '#E07A5F',
+        description: 'Care infrastructure for people who love more than one person.',
+        // Brand parchment for the splash + status bar surround.
+        theme_color: '#FAF6EF',
         background_color: '#FAF7F2',
         display: 'standalone',
         orientation: 'portrait',
@@ -41,15 +47,23 @@ export default defineConfig({
         scope: '/',
         icons: [
           {
-            src: '/icon.svg',
-            sizes: '192x192 512x512',
-            type: 'image/svg+xml',
+            src: '/icons/icon-192.png',
+            sizes: '192x192',
+            type: 'image/png',
             purpose: 'any',
           },
           {
-            src: '/icon.svg',
+            src: '/icons/icon-512.png',
             sizes: '512x512',
-            type: 'image/svg+xml',
+            type: 'image/png',
+            purpose: 'any',
+          },
+          // Maskable variant has parchment baked in + a 72% safe zone so
+          // platforms that mask to circles/squircles don't clip the wordmark.
+          {
+            src: '/icons/icon-maskable-512.png',
+            sizes: '512x512',
+            type: 'image/png',
             purpose: 'maskable',
           },
         ],
