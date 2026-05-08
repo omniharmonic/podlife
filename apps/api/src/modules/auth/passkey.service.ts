@@ -12,7 +12,7 @@
  * Server holds the challenge in `webauthn_challenges` so multi-tab and
  * PWA-cold-start scenarios are robust (no reliance on browser state).
  */
-import { and, eq, gt, lt } from 'drizzle-orm';
+import { and, eq, gt, isNull, lt, or } from 'drizzle-orm';
 import {
   generateAuthenticationOptions,
   generateRegistrationOptions,
@@ -135,23 +135,39 @@ export async function finishPasskeyRegistration(
   const cred = info.credential;
   const cleanNick = nickname?.trim().slice(0, 80) || null;
 
-  await db.insert(webauthnCredentials).values({
-    personId: person.id,
-    credentialId: cred.id,
-    publicKey: Buffer.from(cred.publicKey).toString('base64url'),
-    counter: cred.counter,
-    transports: cred.transports ?? [],
-    deviceType: info.credentialDeviceType,
-    backedUp: info.credentialBackedUp,
-    nickname: cleanNick,
-  });
+  // Insert with .returning() so we have the row's UUID for the audit log.
+  // `audit_log.resource_id` is a `uuid` column — passing the credential's
+  // base64url id (which is what WebAuthn calls "id") would blow up with a
+  // "invalid input syntax for type uuid" error and 500 the request, even
+  // though the device has already stored the passkey. The credential's
+  // public id goes into metadata for later cross-referencing.
+  const [stored] = await db
+    .insert(webauthnCredentials)
+    .values({
+      personId: person.id,
+      credentialId: cred.id,
+      publicKey: Buffer.from(cred.publicKey).toString('base64url'),
+      counter: cred.counter,
+      transports: cred.transports ?? [],
+      deviceType: info.credentialDeviceType,
+      backedUp: info.credentialBackedUp,
+      nickname: cleanNick,
+    })
+    .returning();
+  if (!stored) {
+    throw new AuthError('Passkey registration failed', 'PASSKEY_REGISTRATION_FAILED');
+  }
 
   await db.insert(auditLog).values({
     personId: person.id,
     action: 'passkey.register',
     resourceType: 'webauthn_credential',
-    resourceId: cred.id,
-    metadata: { deviceType: info.credentialDeviceType, backedUp: info.credentialBackedUp },
+    resourceId: stored.id,
+    metadata: {
+      credentialId: cred.id,
+      deviceType: info.credentialDeviceType,
+      backedUp: info.credentialBackedUp,
+    },
   });
 
   logger.info('passkey registered', { personId: person.id });
@@ -342,7 +358,9 @@ export async function deletePasskey(personId: string, passkeyId: string): Promis
  * Atomically pop the most recent challenge that matches our criteria. Also
  * sweeps any expired rows on the way out so the table doesn't grow.
  */
-async function consumeChallenge(
+// Exported for the regression test in tests/passkey-challenge.test.ts.
+// Internal API otherwise — callers should use the public flow above.
+export async function consumeChallenge(
   personId: string | null,
   email: string | null,
   purpose: 'register' | 'authenticate',
@@ -352,19 +370,40 @@ async function consumeChallenge(
   // Best-effort cleanup — non-fatal if it errors.
   await db.delete(webauthnChallenges).where(lt(webauthnChallenges.expiresAt, now)).catch(() => {});
 
-  const matchPerson = personId ? eq(webauthnChallenges.personId, personId) : undefined;
-  const matchEmail = email ? eq(webauthnChallenges.email, email) : undefined;
-  const conditions = [
+  const baseConditions = [
     eq(webauthnChallenges.purpose, purpose),
     gt(webauthnChallenges.expiresAt, now),
   ];
-  if (matchPerson) conditions.push(matchPerson);
-  else if (matchEmail) conditions.push(matchEmail);
+
+  // Build the owner-matching predicate. Registration is always tied to a
+  // specific authenticated user — strict match. Authentication has two
+  // surfaces: a targeted flow (options endpoint received an email so the
+  // challenge row has personId/email set) and a usernameless flow (the
+  // user clicked "Sign in with a passkey" without typing their email, so
+  // the challenge has both NULL and is matchable by any subsequently
+  // resolved credential).
+  let ownerMatch;
+  if (purpose === 'register') {
+    if (!personId) return null;
+    ownerMatch = eq(webauthnChallenges.personId, personId);
+  } else {
+    const alternatives = [];
+    if (personId) alternatives.push(eq(webauthnChallenges.personId, personId));
+    if (email) alternatives.push(eq(webauthnChallenges.email, email));
+    // Usernameless / discovery flow: challenge has no owner hint.
+    alternatives.push(
+      and(
+        isNull(webauthnChallenges.personId),
+        isNull(webauthnChallenges.email),
+      ),
+    );
+    ownerMatch = alternatives.length === 1 ? alternatives[0] : or(...alternatives);
+  }
 
   const rows = await db
     .select()
     .from(webauthnChallenges)
-    .where(and(...conditions))
+    .where(and(...baseConditions, ownerMatch))
     .orderBy(webauthnChallenges.createdAt);
   const latest = rows[rows.length - 1];
   if (!latest) return null;
