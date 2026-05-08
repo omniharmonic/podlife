@@ -56,7 +56,25 @@ async function maskable(size, name, safeZonePct = 0.72) {
 await plainResize(192, 'icon-192.png');
 await plainResize(512, 'icon-512.png');
 await maskable(512, 'icon-maskable-512.png', 0.72);
-// Apple touch icon: same idea, 180x180, slightly tighter safe zone since
-// iOS doesn't mask aggressively.
+
+// iOS Add-to-Home-Screen icons. iOS Safari picks the closest-sized
+// `apple-touch-icon` link, so we ship a small set that covers the
+// common device classes. Background is baked in (parchment) — iOS
+// doesn't mask aggressively, but a transparent PNG looks muddy on
+// dark-mode home screens.
+//   180 — current iPhone (canonical Apple recommendation)
+//   167 — iPad Pro
+//   152 — older iPad
+//   120 — older iPhone non-Retina HD
+const APPLE_SIZES = [180, 167, 152, 120];
+for (const sz of APPLE_SIZES) {
+  await maskable(sz, `apple-touch-icon-${sz}.png`, 0.78);
+}
+// Default canonical name — iOS falls back to /apple-touch-icon.png if
+// it can't find a sized variant in the link list.
 await maskable(180, 'apple-touch-icon.png', 0.78);
+// Precomposed alias for very old iOS Safari (≤7) which prefers the
+// `-precomposed` suffix to avoid auto-overlay/gloss. Modern iOS doesn't
+// need it but the alias is free insurance.
+await maskable(180, 'apple-touch-icon-precomposed.png', 0.78);
 console.log('done.');
