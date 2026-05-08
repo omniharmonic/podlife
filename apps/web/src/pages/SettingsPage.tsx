@@ -12,6 +12,7 @@ import { Modal } from '@/components/ui/Modal';
 import { EditorialHeading } from '@/components/ui/EditorialHeading';
 import { useSetManualAvailability } from '@/hooks/useAvailability';
 import { usePodsList, useCreatePod } from '@/hooks/usePods';
+import { useInstallPrompt } from '@/hooks/useInstallPrompt';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { me as meApi, getSessionToken, calendars as calendarsApi } from '@/lib/api';
 import { useUiStore } from '@/stores/ui.store';
@@ -163,6 +164,7 @@ export function SettingsPage() {
   // they only have one). Multi-pod users can also use the list page.
   const podsList = usePodsList();
   const createPod = useCreatePod();
+  const install = useInstallPrompt();
   const [podModalOpen, setPodModalOpen] = useState(false);
   const [podName, setPodName] = useState('');
   const [podEmoji, setPodEmoji] = useState('🏠');
@@ -281,6 +283,60 @@ export function SettingsPage() {
           </Button>
         </div>
       </Section>
+
+      {/* Install — only shown when the platform supports installation
+          and the app isn't already running standalone. */}
+      {install.showInSettings && (
+        <Section title="Add to your home screen">
+          <p className="text-sm text-ink-500 mb-4">
+            Pod Life lives best as an app on your phone — opens faster, stays
+            signed in, no browser chrome.
+          </p>
+          {install.canPrompt ? (
+            <div className="flex items-center justify-between gap-4 px-4 py-3 rounded-xl border border-ink-100/60 bg-cream">
+              <p className="text-sm text-ink-700 leading-relaxed">
+                Install Pod Life as an app on this device.
+              </p>
+              <Button
+                onClick={async () => {
+                  const outcome = await install.promptInstall();
+                  if (outcome === 'accepted') {
+                    showToast('Pod Life is on your home screen', 'success');
+                  }
+                }}
+              >
+                Install
+              </Button>
+            </div>
+          ) : install.isIOS ? (
+            <ol className="text-sm text-ink-700 leading-[1.7] flex flex-col gap-1.5 px-4 py-3 rounded-xl border border-ink-100/60 bg-cream">
+              <li>
+                <span className="text-ink-400 mr-2 tabular-nums">1.</span>
+                Tap the <span className="font-medium text-ink-800">Share</span>{' '}
+                icon in Safari's toolbar
+                <span aria-hidden="true" className="ml-1 text-ink-500">
+                  (the square with an arrow pointing up)
+                </span>
+                .
+              </li>
+              <li>
+                <span className="text-ink-400 mr-2 tabular-nums">2.</span>
+                Choose{' '}
+                <span className="font-medium text-ink-800">
+                  Add to Home Screen
+                </span>
+                .
+              </li>
+              <li>
+                <span className="text-ink-400 mr-2 tabular-nums">3.</span>
+                Tap{' '}
+                <span className="font-medium text-ink-800">Add</span> in the
+                top-right.
+              </li>
+            </ol>
+          ) : null}
+        </Section>
+      )}
 
       {/* Calendars */}
       <Section title="Calendars">
