@@ -50,14 +50,23 @@ export const subgroupConfigSchema = z.object({
 
 // ─── Auth ──────────────────────────────────────────────────────
 
-export const requestMagicLinkSchema = z.object({
+export const requestLoginCodeSchema = z.object({
   email: z.string().email().toLowerCase(),
 });
 
-export const verifyMagicLinkSchema = z.object({
+// `token` is kept as the wire field name to keep the existing client + test
+// surface working, but it now carries a 6-character code. We accept anything
+// 4–32 chars long here and let the service do the strict normalize+verify.
+export const verifyLoginCodeSchema = z.object({
   email: z.string().email().toLowerCase(),
-  token: z.string().min(10),
+  token: z.string().min(4).max(32),
 });
+
+// Back-compat aliases — the magic-link names are referenced from a few
+// service modules that we'll migrate piecemeal. Safe to remove once all
+// imports have been switched over.
+export const requestMagicLinkSchema = requestLoginCodeSchema;
+export const verifyMagicLinkSchema = verifyLoginCodeSchema;
 
 // ─── Person ────────────────────────────────────────────────────
 

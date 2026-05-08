@@ -18,7 +18,7 @@ import {
   invalidatePersonAvailabilityCache,
 } from '../../services/calendar/calendar.aggregator.js';
 import { setManualWindows } from '../../services/calendar/manual.provider.js';
-import { resolveSession } from '../auth/magic-link.service.js';
+import { resolveSession } from '../auth/login-code.service.js';
 
 // Authenticated /api/me/* routes ------------------------------------
 export const calendarRoutes = new Hono();

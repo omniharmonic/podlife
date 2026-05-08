@@ -118,12 +118,17 @@ export const persons = pgTable(
   (t) => [index('idx_persons_email').on(t.email)],
 );
 
+// One-time login codes sent by email. Replaces the magic-link flow so PWAs
+// don't lose context when the link opens in the OS browser. The `tokenHash`
+// column stores a bcrypt hash of the normalized 6-char code, and `attempts`
+// caps brute-force guesses against the low-entropy code space.
 export const magicLinks = pgTable(
   'magic_links',
   {
     id: uuid('id').primaryKey().default(sql`uuid_generate_v4()`),
     email: text('email').notNull(),
     tokenHash: text('token_hash').notNull(),
+    attempts: integer('attempts').notNull().default(0),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     usedAt: timestamp('used_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

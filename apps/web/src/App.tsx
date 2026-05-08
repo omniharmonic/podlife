@@ -1,6 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { LoginPage } from '@/pages/LoginPage';
-import { VerifyPage } from '@/pages/VerifyPage';
 import { WelcomePage } from '@/pages/WelcomePage';
 import { HomePage } from '@/pages/HomePage';
 import { CalendarPage } from '@/pages/CalendarPage';
@@ -21,9 +20,10 @@ export function App() {
       {/* Public */}
       <Route path="/welcome" element={<WelcomePage />} />
       <Route path="/login" element={<LoginPage />} />
-      {/* /verify (not /auth/verify) avoids the dev proxy that forwards /auth/* to the API. */}
-      <Route path="/verify" element={<VerifyPage />} />
-      <Route path="/auth/verify" element={<VerifyPage />} />
+      {/* The old magic-link landing routes redirect to /login — sign-in is
+          now a single-page code flow, no second-tab handoff. */}
+      <Route path="/verify" element={<Navigate to="/login" replace />} />
+      <Route path="/auth/verify" element={<Navigate to="/login" replace />} />
       <Route path="/invite/:token" element={<InviteAcceptPage />} />
 
       {/* Onboarding — auth required, but does NOT require onboarded flag */}

@@ -25,8 +25,12 @@ export const PARTNER_COLORS = [
   '#C77F87', // muted rosé
 ] as const;
 
-// Magic-link / session TTLs (per arch § 5.1).
-export const MAGIC_LINK_TTL_MINUTES = 15;
-export const SESSION_TTL_DAYS = 30;
+// Login code / session TTLs (per arch § 5.1; magic-link concept replaced
+// by a 6-character email code so the auth flow survives the email→browser
+// →PWA boundary that breaks deep links on iOS).
+export const LOGIN_CODE_TTL_MINUTES = 15;
+export const LOGIN_CODE_LENGTH = 6;
+export const LOGIN_CODE_MAX_ATTEMPTS = 5;
+export const SESSION_TTL_DAYS = 60;
 export const PARTNER_INVITE_TTL_DAYS = 7;
 export const POD_INVITE_TTL_DAYS = 7;
