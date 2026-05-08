@@ -39,7 +39,7 @@ describe('auth', () => {
     expect(r3.body.person.email).toBe(email);
   });
 
-  it('rejects invalid magic link tokens', async () => {
+  it('rejects invalid login codes', async () => {
     const app = newApp();
     const email = uniqueEmail();
     created.push(email);
@@ -47,10 +47,10 @@ describe('auth', () => {
     await call(app, '/auth/magic-link', { method: 'POST', json: { email } });
     const r = await call(app, '/auth/verify', {
       method: 'POST',
-      json: { email, token: 'bogus_value_with_enough_length' },
+      json: { email, token: 'WRONG1' },
     });
     expect(r.status).toBe(401);
-    expect(r.body.error.code).toBe('INVALID_MAGIC_LINK');
+    expect(r.body.error.code).toBe('INVALID_LOGIN_CODE');
   });
 
   it('prevents replay (used token cannot be re-used)', async () => {

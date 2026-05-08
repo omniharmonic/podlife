@@ -1,15 +1,21 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { LOGIN_CODE_LENGTH, LOGIN_CODE_TTL_MINUTES } from '@pod-life/shared';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Flourish } from '@/components/ui/Flourish';
 import { auth } from '@/lib/api';
+import { useAuth } from '@/hooks/useAuth';
 
 type Status =
   | { kind: 'idle' }
-  | { kind: 'submitting' }
-  | { kind: 'sent'; email: string }
-  | { kind: 'error'; message: string };
+  /** `email` null while still requesting the very first code (no code step
+   *  visible yet); set during a resend so the code step stays mounted. */
+  | { kind: 'requesting'; email: string | null }
+  | { kind: 'awaiting'; email: string }
+  | { kind: 'verifying'; email: string }
+  | { kind: 'error'; email: string | null; message: string };
 
 const FOUNDED_YEAR = new Date().getFullYear();
 const TODAY_FMT = new Intl.DateTimeFormat('en-US', {
@@ -32,26 +38,105 @@ const TODAY_FMT = new Intl.DateTimeFormat('en-US', {
  */
 export function LoginPage() {
   const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
+  const codeInputRef = useRef<HTMLInputElement | null>(null);
+  const { login } = useAuth();
+  const navigate = useNavigate();
 
-  async function onSubmit(e: React.FormEvent) {
+  // Focus the code input the moment we transition to the awaiting step so
+  // the iOS one-time-code suggestion bar can pop up immediately.
+  useEffect(() => {
+    if (status.kind === 'awaiting') {
+      codeInputRef.current?.focus();
+    }
+  }, [status.kind]);
+
+  async function onRequestCode(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = email.trim();
     if (!trimmed) return;
-    setStatus({ kind: 'submitting' });
+    setStatus({ kind: 'requesting', email: null });
+    setCode('');
     try {
-      await auth.requestMagicLink(trimmed);
-      setStatus({ kind: 'sent', email: trimmed });
+      await auth.requestLoginCode(trimmed);
+      setStatus({ kind: 'awaiting', email: trimmed });
     } catch (err) {
       setStatus({
         kind: 'error',
+        email: null,
         message:
           err instanceof Error
             ? err.message
-            : 'Something went sideways. One more try?',
+            : "Couldn't send the code. Try again?",
       });
     }
   }
+
+  async function onVerifyCode(e: React.FormEvent) {
+    e.preventDefault();
+    if (status.kind !== 'awaiting' && status.kind !== 'error') return;
+    const target =
+      status.kind === 'awaiting' ? status.email : (status.email ?? email.trim());
+    if (!target) return;
+    const cleaned = code.replace(/[\s-_]/g, '').toUpperCase();
+    if (cleaned.length < LOGIN_CODE_LENGTH) return;
+    setStatus({ kind: 'verifying', email: target });
+    try {
+      const result = await auth.verify(target, cleaned);
+      login(result.sessionToken, result.person);
+      const dest = result.person.onboardedAt ? '/home' : '/onboarding';
+      navigate(dest, { replace: true });
+    } catch (err) {
+      setStatus({
+        kind: 'error',
+        email: target,
+        message:
+          err instanceof Error
+            ? err.message
+            : 'That code didn\'t match. Try again, or send a new one.',
+      });
+      setCode('');
+      requestAnimationFrame(() => codeInputRef.current?.focus());
+    }
+  }
+
+  function backToEmail() {
+    setStatus({ kind: 'idle' });
+    setCode('');
+  }
+
+  async function resendCode() {
+    if (status.kind !== 'awaiting' && status.kind !== 'error') return;
+    const target = status.email;
+    if (!target) return;
+    setStatus({ kind: 'requesting', email: target });
+    try {
+      await auth.requestLoginCode(target);
+      setStatus({ kind: 'awaiting', email: target });
+      setCode('');
+    } catch (err) {
+      setStatus({
+        kind: 'error',
+        email: target,
+        message:
+          err instanceof Error
+            ? err.message
+            : "Couldn't send a new code. Try again?",
+      });
+    }
+  }
+
+  // The code step stays mounted across `requesting` (resend) so the input
+  // doesn't unmount mid-flight; only the very first request (email===null)
+  // keeps the email step visible.
+  const showCodeStep =
+    status.kind === 'awaiting' ||
+    status.kind === 'verifying' ||
+    (status.kind === 'requesting' && status.email !== null) ||
+    (status.kind === 'error' && status.email !== null);
+  const errorMessage = status.kind === 'error' ? status.message : undefined;
+  const resendDisabled = status.kind === 'requesting';
 
   return (
     <div className="relative min-h-screen flex flex-col bg-parchment overflow-hidden">
@@ -147,43 +232,94 @@ export function LoginPage() {
             We'll find a plan where everyone gets cared for.
           </motion.p>
 
-          {/* Sign-in form — quiet practical close */}
-          {status.kind === 'sent' ? (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="w-full max-w-sm border-t border-b border-ink-200/60 py-8"
+          {/* Sign-in form — quiet practical close.
+              Two steps: email → 6-character code. The code path works the
+              same in the browser, in an installed PWA, or after the email
+              opens Safari and the user comes back to the home-screen icon. */}
+          {showCodeStep ? (
+            <motion.form
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              onSubmit={onVerifyCode}
+              className="w-full max-w-sm flex flex-col gap-6 border-t border-b border-ink-200/60 py-8"
             >
-              <p
-                className="font-display italic text-3xl text-ink-800 mb-4"
-                style={{ fontVariationSettings: "'opsz' 60, 'SOFT' 60, 'wght' 440" }}
+              <div>
+                <p
+                  className="font-display italic text-3xl text-ink-800 mb-3"
+                  style={{ fontVariationSettings: "'opsz' 60, 'SOFT' 60, 'wght' 440" }}
+                >
+                  A letter is on its way
+                </p>
+                <p className="text-sm text-ink-600 mb-1 leading-relaxed">
+                  We've sent a {LOGIN_CODE_LENGTH}-character code to
+                </p>
+                <p className="font-mono text-[13px] text-ink-800 tracking-wide break-all">
+                  {'email' in status ? (status.email ?? '') : ''}
+                </p>
+              </div>
+
+              <Input
+                ref={codeInputRef}
+                type="text"
+                name="code"
+                label="Type or paste the code"
+                autoComplete="one-time-code"
+                inputMode="text"
+                placeholder="ABC-DEF"
+                required
+                value={code}
+                onChange={(e) => setCode(e.currentTarget.value)}
+                maxLength={LOGIN_CODE_LENGTH + 4}
+                spellCheck={false}
+                autoCapitalize="characters"
+                error={errorMessage}
+                hint={`Expires in ${LOGIN_CODE_TTL_MINUTES} minutes — like most good things.`}
+                style={{
+                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+                  letterSpacing: '0.18em',
+                  textTransform: 'uppercase',
+                  fontSize: '20px',
+                }}
+              />
+
+              <Button
+                type="submit"
+                size="lg"
+                fullWidth
+                loading={status.kind === 'verifying'}
+                disabled={
+                  code.replace(/[\s\-_]/g, '').length < LOGIN_CODE_LENGTH ||
+                  status.kind === 'verifying'
+                }
               >
-                A letter is on its way
-              </p>
-              <p className="text-sm text-ink-600 mb-1 leading-relaxed">
-                We've sent a one-time sign-in link to
-              </p>
-              <p className="font-mono text-[13px] text-ink-800 mb-6 tracking-wide break-all">
-                {status.email}
-              </p>
-              <p className="text-xs text-ink-400 italic mb-6 leading-relaxed">
-                Check your inbox. The link works once and expires in
-                fifteen minutes — like most good things.
-              </p>
-              <button
-                type="button"
-                onClick={() => setStatus({ kind: 'idle' })}
-                className="text-sm text-terracotta-600 underline-offset-4 hover:underline"
-              >
-                Use a different address
-              </button>
-            </motion.div>
+                Sign in
+              </Button>
+
+              <div className="flex items-center justify-between text-[13px]">
+                <button
+                  type="button"
+                  onClick={resendCode}
+                  className="text-ink-500 hover:text-ink-700 underline-offset-4 hover:underline disabled:opacity-50"
+                  disabled={resendDisabled}
+                >
+                  {resendDisabled ? 'Sending…' : 'Send a new code'}
+                </button>
+                <button
+                  type="button"
+                  onClick={backToEmail}
+                  className="text-ink-500 hover:text-ink-700 underline-offset-4 hover:underline"
+                >
+                  Use a different address
+                </button>
+              </div>
+            </motion.form>
           ) : (
             <motion.form
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.5 }}
-              onSubmit={onSubmit}
+              onSubmit={onRequestCode}
               className="w-full max-w-sm flex flex-col gap-7"
             >
               <Input
@@ -196,17 +332,21 @@ export function LoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.currentTarget.value)}
-                error={status.kind === 'error' ? status.message : undefined}
-                hint="No password, no app account — just a one-time sign-in link by email."
+                error={
+                  status.kind === 'error' && status.email === null
+                    ? status.message
+                    : undefined
+                }
+                hint="No password, no app account — we'll send a code to type in."
               />
               <Button
                 type="submit"
                 size="lg"
                 fullWidth
-                loading={status.kind === 'submitting'}
-                disabled={!email.trim()}
+                loading={status.kind === 'requesting'}
+                disabled={!email.trim() || status.kind === 'requesting'}
               >
-                Send the link
+                Send the code
               </Button>
             </motion.form>
           )}

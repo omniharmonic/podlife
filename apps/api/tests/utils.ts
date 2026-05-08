@@ -15,7 +15,7 @@ import {
   schedulingCycles,
   partnerships,
 } from '../src/db/schema.ts';
-import { requestMagicLink, verifyMagicLink } from '../src/modules/auth/magic-link.service.ts';
+import { requestLoginCode, verifyLoginCode } from '../src/modules/auth/login-code.service.ts';
 
 export function newApp(): Hono {
   return buildApp();
@@ -25,9 +25,9 @@ export async function createTestPerson(email: string): Promise<{
   sessionToken: string;
   personId: string;
 }> {
-  const result = await requestMagicLink(email);
+  const result = await requestLoginCode(email);
   if (!result.devToken) throw new Error('expected devToken in non-prod');
-  const verified = await verifyMagicLink(email, result.devToken);
+  const verified = await verifyLoginCode(email, result.devToken);
   return { sessionToken: verified.sessionToken, personId: verified.person.id };
 }
 

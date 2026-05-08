@@ -137,17 +137,21 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
 // ─── Endpoint groups ────────────────────────────────────────────────
 
 export const auth = {
-  requestMagicLink(email: string) {
+  // Request a 6-character sign-in code by email. Replaces the older magic
+  // link flow — codes survive the email→browser→PWA boundary that breaks
+  // deep links on iOS.
+  requestLoginCode(email: string) {
     return request<{ ok: true }>(`/auth/magic-link`, {
       method: 'POST',
       body: { email },
       unauthenticated: true,
     });
   },
-  verify(email: string, token: string) {
+  /** Verify a login code (or, in the legacy path, magic-link token). */
+  verify(email: string, code: string) {
     return request<{ sessionToken: string; person: Person }>(`/auth/verify`, {
       method: 'POST',
-      body: { email, token },
+      body: { email, token: code },
       unauthenticated: true,
     });
   },
