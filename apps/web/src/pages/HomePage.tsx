@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/Button';
 import { SatisfactionRing } from '@/components/ui/SatisfactionRing';
 import { Avatar } from '@/components/ui/Avatar';
 import { useUiStore } from '@/stores/ui.store';
+import { useInstallPrompt } from '@/hooks/useInstallPrompt';
 import { formatTimeRange } from '@/lib/dates';
 
 /**
@@ -34,6 +35,7 @@ export function HomePage() {
   const markRead = useMarkNotificationRead();
   const runCycle = useRunCycle();
   const showToast = useUiStore((s) => s.showToast);
+  const install = useInstallPrompt();
 
   const greeting = useMemo(() => greetingForHour(new Date()), []);
   const blocks = useMemo(() => proposals.data?.proposals ?? [], [proposals.data]);
@@ -257,6 +259,64 @@ export function HomePage() {
                   </Link>
                 );
               })}
+            </div>
+          </Card>
+        </section>
+      )}
+
+      {/* Install nudge — a quiet, dismissable home-screen invitation. Only
+          shows once partners exist (post-onboarding) and the platform can
+          actually install. Sticky-dismissed via localStorage. */}
+      {install.showNudge && hasPartners && (
+        <section>
+          <Card padding="md" className="border-terracotta-200/70 bg-terracotta-50/40">
+            <div className="flex items-start gap-4">
+              <span
+                aria-hidden="true"
+                className="mt-0.5 text-2xl shrink-0"
+                style={{ filter: 'saturate(0.95)' }}
+              >
+                🏡
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="font-display text-ink-800 text-[1.35rem] leading-tight tracking-[-0.005em]">
+                  Pod Life lives best on your home screen
+                </p>
+                <p className="text-sm text-ink-600 mt-1.5 leading-relaxed">
+                  {install.isIOS
+                    ? "Tap the Share icon, then \"Add to Home Screen\" — it'll open like an app and stay signed in."
+                    : 'Add it to your home screen and it opens straight to today, signed in, no browser around it.'}
+                </p>
+                <div className="flex items-center gap-3 mt-3.5">
+                  {install.canPrompt && (
+                    <Button
+                      size="sm"
+                      onClick={async () => {
+                        const outcome = await install.promptInstall();
+                        if (outcome === 'accepted') {
+                          showToast('Pod Life is on your home screen', 'success');
+                        }
+                      }}
+                    >
+                      Add to home screen
+                    </Button>
+                  )}
+                  {install.isIOS && (
+                    <Link to="/settings">
+                      <Button variant="ghost" size="sm">
+                        Show me how
+                      </Button>
+                    </Link>
+                  )}
+                  <button
+                    type="button"
+                    onClick={install.dismiss}
+                    className="text-[12px] text-ink-500 hover:text-ink-700 underline-offset-4 hover:underline"
+                  >
+                    Not now
+                  </button>
+                </div>
+              </div>
             </div>
           </Card>
         </section>
