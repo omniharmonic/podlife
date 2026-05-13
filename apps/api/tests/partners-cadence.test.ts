@@ -269,6 +269,103 @@ describe('partners — cadence confirmation flow', () => {
     expect(r.status).toBe(400);
   });
 
+  it(
+    'partners in a shared pod: propose / accept / decline all 400; sharedPods surfaced',
+    async () => {
+      // When both members of a partnership belong to the same pod, the
+      // pod's cadence is authoritative. The API rejects per-partnership
+      // cadence proposals to keep the data model consistent with the UX
+      // (the picker is hidden).
+      const app = newApp();
+      const a = await authed(app, 'cadSPA');
+      const b = await authed(app, 'cadSPB');
+
+      // Partnership first.
+      const inv = await call(app, '/api/partners/invite', {
+        method: 'POST',
+        token: a.token,
+        json: {},
+      });
+      const acc = await call(app, `/api/partners/accept/${inv.body.token}`, {
+        method: 'POST',
+        token: b.token,
+      });
+      const partnershipId = acc.body.partnershipId;
+
+      // Now both join a shared pod.
+      const pod = await call(app, '/api/pods', {
+        method: 'POST',
+        token: a.token,
+        json: { name: 'Coven', emoji: '🌙' },
+      });
+      const podId = pod.body.pod.id;
+      const podInv = await call(app, `/api/pods/${podId}/invite`, {
+        method: 'POST',
+        token: a.token,
+        json: { role: 'member' },
+      });
+      await call(app, `/api/pods/join/${podInv.body.token}`, {
+        method: 'POST',
+        token: b.token,
+      });
+
+      // listPartners now reports sharedPods on the partnership.
+      const list = await call(app, '/api/partners', { token: a.token });
+      const p = list.body.partners.find(
+        (x: { partnershipId: string }) => x.partnershipId === partnershipId,
+      );
+      expect(p).toBeDefined();
+      expect(p.sharedPods).toHaveLength(1);
+      expect(p.sharedPods[0].name).toBe('Coven');
+
+      // Propose rejected with a clear message about the pod.
+      const propose = await call(app, `/api/partners/${partnershipId}/cadence/propose`, {
+        method: 'POST',
+        token: a.token,
+        json: { cadence: 'biweekly' },
+      });
+      expect(propose.status).toBe(400);
+      expect(JSON.stringify(propose.body)).toContain('Coven');
+
+      // Accept rejected — even with no pending it can't succeed.
+      const accept = await call(app, `/api/partners/${partnershipId}/cadence/accept`, {
+        method: 'POST',
+        token: b.token,
+      });
+      expect(accept.status).toBe(400);
+
+      // Decline rejected.
+      const decline = await call(app, `/api/partners/${partnershipId}/cadence/decline`, {
+        method: 'POST',
+        token: a.token,
+      });
+      expect(decline.status).toBe(400);
+    },
+    60_000,
+  );
+
+  it(
+    'sharedPods is empty for partnerships outside any pod (no false positives)',
+    async () => {
+      const app = newApp();
+      const { a, partnershipId } = await makePair(app);
+
+      // a creates a solo pod (b not a member).
+      await call(app, '/api/pods', {
+        method: 'POST',
+        token: a.token,
+        json: { name: 'Solo Sanctuary', emoji: '🌿' },
+      });
+
+      const list = await call(app, '/api/partners', { token: a.token });
+      const p = list.body.partners.find(
+        (x: { partnershipId: string }) => x.partnershipId === partnershipId,
+      );
+      expect(p.sharedPods).toEqual([]);
+    },
+    60_000,
+  );
+
   it('a preferences update does not disturb cadence state (regression guard)', async () => {
     const app = newApp();
     const { a, b, partnershipId } = await makePair(app);

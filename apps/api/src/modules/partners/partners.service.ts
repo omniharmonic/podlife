@@ -5,7 +5,7 @@
  * Privacy invariant (CLAUDE.md § Privacy Model):
  *   A person only sees partnerships involving themselves.
  */
-import { and, eq, gt, or } from 'drizzle-orm';
+import { and, eq, gt, inArray, or, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import {
   PARTNER_COLORS,
@@ -22,6 +22,8 @@ import {
   partnershipPreferences,
   partnerships,
   persons,
+  podMembers,
+  pods,
 } from '../../db/schema.js';
 import {
   ConflictError,
@@ -157,6 +159,30 @@ export async function acceptInvite(
   return { partnershipId: partnership.id };
 }
 
+/**
+ * Find every pod that contains both `personA` and `personB` as members.
+ * Used to detect when a partnership lives inside a shared pod — that pod's
+ * cadence becomes authoritative and the per-partnership cadence is hidden
+ * in the UI and rejected at the API.
+ *
+ * The two-side IN-list is cheap: pod_members has a btree index on person_id
+ * and the inner join + group-by-podId-with-count-2 fits the small fanout
+ * we expect (a person belongs to a handful of pods, not thousands).
+ */
+async function findSharedPods(
+  personA: string,
+  personB: string,
+): Promise<Array<{ id: string; name: string }>> {
+  const rows = await db
+    .select({ id: pods.id, name: pods.name })
+    .from(pods)
+    .innerJoin(podMembers, eq(podMembers.podId, pods.id))
+    .where(inArray(podMembers.personId, [personA, personB]))
+    .groupBy(pods.id, pods.name)
+    .having(sql`count(distinct ${podMembers.personId}) = 2`);
+  return rows;
+}
+
 export async function listPartners(personId: string): Promise<PartnerSummary[]> {
   const rows = await db
     .select({
@@ -181,6 +207,19 @@ export async function listPartners(personId: string): Promise<PartnerSummary[]> 
     : [];
   const prefByPartnership = new Map(prefs.map((p) => [p.partnershipId, p]));
 
+  // Compute shared pods per partnership in parallel. This is N partnership-
+  // count round trips, which is fine for the typical "handful of partners"
+  // scale — if it ever becomes hot, batch into a single SQL with a join
+  // back to partnerships on (personAId, personBId).
+  const sharedPodsByPartnership = new Map<string, Array<{ id: string; name: string }>>();
+  await Promise.all(
+    rows.map(async (r) => {
+      const otherId = r.partner.id;
+      const shared = await findSharedPods(personId, otherId);
+      sharedPodsByPartnership.set(r.partnership.id, shared);
+    }),
+  );
+
   return rows.map((r) => {
     const myPrefRow = prefByPartnership.get(r.partnership.id);
     const myPrefs: PartnershipPreferenceDto | null = myPrefRow
@@ -201,8 +240,26 @@ export async function listPartners(personId: string): Promise<PartnerSummary[]> 
       cadence: (r.partnership.cadence as SchedulingCadence) ?? 'weekly',
       pendingCadence: (r.partnership.pendingCadence as SchedulingCadence | null) ?? null,
       pendingCadenceBy: r.partnership.pendingCadenceBy ?? null,
+      sharedPods: sharedPodsByPartnership.get(r.partnership.id) ?? [],
     };
   });
+}
+
+/**
+ * Throw a 400 if the two partners share at least one pod. Pod cadence is
+ * authoritative for pod-internal scheduling, so per-partnership cadence
+ * proposals don't make sense in that case — the UI hides the picker, and
+ * this server-side guard catches any direct API access.
+ */
+async function assertNoSharedPod(partnership: typeof partnerships.$inferSelect): Promise<void> {
+  const shared = await findSharedPods(partnership.personAId, partnership.personBId);
+  if (shared.length > 0) {
+    throw new ValidationError(
+      `Cadence is set by your shared pod${shared.length === 1 ? '' : 's'} (${shared
+        .map((p) => p.name)
+        .join(', ')}). Edit the pod's check-in rhythm instead.`,
+    );
+  }
 }
 
 /**
@@ -228,6 +285,7 @@ export async function proposeCadence(
     .limit(1);
   const p = rows[0];
   if (!p) throw new NotFoundError('Partnership not found');
+  await assertNoSharedPod(p);
 
   const current = (p.cadence as SchedulingCadence) ?? 'weekly';
 
@@ -287,6 +345,7 @@ export async function acceptCadenceProposal(
     .limit(1);
   const p = rows[0];
   if (!p) throw new NotFoundError('Partnership not found');
+  await assertNoSharedPod(p);
   if (!p.pendingCadence || !p.pendingCadenceBy) {
     throw new ValidationError('No cadence proposal to accept');
   }
@@ -331,6 +390,7 @@ export async function declineCadenceProposal(
     .limit(1);
   const p = rows[0];
   if (!p) throw new NotFoundError('Partnership not found');
+  await assertNoSharedPod(p);
   if (!p.pendingCadence) {
     throw new ValidationError('No cadence proposal to decline');
   }
