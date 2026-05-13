@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { RelationshipType } from '@pod-life/shared';
 import {
   usePartnerPreferences,
   useUpdatePartnerPreferences,
@@ -13,6 +14,8 @@ import { NaturalPreferenceInput } from '@/components/ai/NaturalPreferenceInput';
 interface Props {
   partnershipId: string;
   partnerName: string;
+  /** When 'friendship', overnight + date-night fields are hidden. */
+  relationshipType?: RelationshipType;
 }
 
 interface FormState {
@@ -39,11 +42,16 @@ const ZERO: FormState = {
  * Editorial inline preferences editor — sliders, toggles, and a clear
  * prose summary of what the user is asking for.
  */
-export function PartnerPreferencesEditor({ partnershipId, partnerName }: Props) {
+export function PartnerPreferencesEditor({
+  partnershipId,
+  partnerName,
+  relationshipType = 'partnership',
+}: Props) {
   const prefs = usePartnerPreferences(partnershipId);
   const update = useUpdatePartnerPreferences(partnershipId);
   const showToast = useUiStore((s) => s.showToast);
   const [form, setForm] = useState<FormState>(ZERO);
+  const isFriendship = relationshipType === 'friendship';
 
   useEffect(() => {
     if (prefs.data) {
@@ -64,8 +72,21 @@ export function PartnerPreferencesEditor({ partnershipId, partnerName }: Props) 
   }
 
   async function onSave() {
+    // In friendship mode the date-night / overnight sliders are hidden but
+    // their values still live in form state. Zero them on save so the
+    // optimizer doesn't try to schedule date nights or overnights for a
+    // platonic relationship.
+    const payload: FormState = isFriendship
+      ? {
+          ...form,
+          needMinDateNights: 0,
+          needMinOvernights: 0,
+          prefDateNights: 0,
+          prefOvernights: 0,
+        }
+      : form;
     try {
-      await update.mutateAsync(form);
+      await update.mutateAsync(payload);
       showToast('Preferences saved', 'success');
     } catch (err) {
       showToast(
@@ -108,17 +129,24 @@ export function PartnerPreferencesEditor({ partnershipId, partnerName }: Props) 
                 style={{ fontVariationSettings: "'opsz' 36, 'SOFT' 50, 'wght' 600" }}>
           {form.prefIdealHours} hours
         </strong>{' '}
-        with {partnerName} each cycle, including{' '}
-        <strong className="font-display not-italic text-ink-900"
-                style={{ fontVariationSettings: "'opsz' 36, 'SOFT' 50, 'wght' 600" }}>
-          {form.prefDateNights} date {form.prefDateNights === 1 ? 'night' : 'nights'}
-        </strong>{' '}
-        and{' '}
-        <strong className="font-display not-italic text-ink-900"
-                style={{ fontVariationSettings: "'opsz' 36, 'SOFT' 50, 'wght' 600" }}>
-          {form.prefOvernights} overnight{form.prefOvernights === 1 ? '' : 's'}
-        </strong>
-        .
+        with {partnerName} each cycle
+        {isFriendship ? (
+          '.'
+        ) : (
+          <>
+            , including{' '}
+            <strong className="font-display not-italic text-ink-900"
+                    style={{ fontVariationSettings: "'opsz' 36, 'SOFT' 50, 'wght' 600" }}>
+              {form.prefDateNights} date {form.prefDateNights === 1 ? 'night' : 'nights'}
+            </strong>{' '}
+            and{' '}
+            <strong className="font-display not-italic text-ink-900"
+                    style={{ fontVariationSettings: "'opsz' 36, 'SOFT' 50, 'wght' 600" }}>
+              {form.prefOvernights} overnight{form.prefOvernights === 1 ? '' : 's'}
+            </strong>
+            .
+          </>
+        )}
       </p>
 
       <Flourish variant="rule" className="text-ink-300" />
@@ -142,26 +170,30 @@ export function PartnerPreferencesEditor({ partnershipId, partnerName }: Props) 
             max={40}
             step={0.5}
           />
+          {!isFriendship && (
+            <Slider
+              label="Date nights"
+              unit="per cycle"
+              value={form.prefDateNights}
+              onChange={(v) => setField('prefDateNights', Math.round(v))}
+              min={0}
+              max={7}
+              step={1}
+            />
+          )}
+          {!isFriendship && (
+            <Slider
+              label="Overnights"
+              unit="per cycle"
+              value={form.prefOvernights}
+              onChange={(v) => setField('prefOvernights', Math.round(v))}
+              min={0}
+              max={7}
+              step={1}
+            />
+          )}
           <Slider
-            label="Date nights"
-            unit="per cycle"
-            value={form.prefDateNights}
-            onChange={(v) => setField('prefDateNights', Math.round(v))}
-            min={0}
-            max={7}
-            step={1}
-          />
-          <Slider
-            label="Overnights"
-            unit="per cycle"
-            value={form.prefOvernights}
-            onChange={(v) => setField('prefOvernights', Math.round(v))}
-            min={0}
-            max={7}
-            step={1}
-          />
-          <Slider
-            label="Daytime hangs"
+            label={isFriendship ? 'Hangouts' : 'Daytime hangs'}
             unit="per cycle"
             value={form.prefDaytimeHangs}
             onChange={(v) => setField('prefDaytimeHangs', Math.round(v))}
@@ -170,14 +202,18 @@ export function PartnerPreferencesEditor({ partnershipId, partnerName }: Props) 
             step={1}
           />
         </div>
-        <div className="mt-6">
-          <Toggle
-            checked={form.prefOvernights > 0}
-            onChange={(v) => setField('prefOvernights', v ? Math.max(1, form.prefOvernights) : 0)}
-            label="I'd like overnights with this partner"
-            description="Toggle off if overnights aren't part of this relationship right now."
-          />
-        </div>
+        {!isFriendship && (
+          <div className="mt-6">
+            <Toggle
+              checked={form.prefOvernights > 0}
+              onChange={(v) =>
+                setField('prefOvernights', v ? Math.max(1, form.prefOvernights) : 0)
+              }
+              label="I'd like overnights with this partner"
+              description="Toggle off if overnights aren't part of this relationship right now."
+            />
+          </div>
+        )}
       </section>
 
       <Flourish variant="rule" className="text-ink-300" />
@@ -191,7 +227,11 @@ export function PartnerPreferencesEditor({ partnershipId, partnerName }: Props) 
         <p className="text-xs text-ink-500 italic mb-6">
           Hard minimums — non-negotiable for the optimizer.
         </p>
-        <div className="grid sm:grid-cols-3 gap-x-10 gap-y-8">
+        <div
+          className={`grid gap-x-10 gap-y-8 ${
+            isFriendship ? 'sm:grid-cols-1' : 'sm:grid-cols-3'
+          }`}
+        >
           <Slider
             label="Min hours"
             unit="per cycle"
@@ -201,24 +241,28 @@ export function PartnerPreferencesEditor({ partnershipId, partnerName }: Props) 
             max={Math.max(20, form.prefIdealHours)}
             step={0.5}
           />
-          <Slider
-            label="Min date nights"
-            unit="per cycle"
-            value={form.needMinDateNights}
-            onChange={(v) => setField('needMinDateNights', Math.round(v))}
-            min={0}
-            max={Math.max(3, form.prefDateNights)}
-            step={1}
-          />
-          <Slider
-            label="Min overnights"
-            unit="per cycle"
-            value={form.needMinOvernights}
-            onChange={(v) => setField('needMinOvernights', Math.round(v))}
-            min={0}
-            max={Math.max(3, form.prefOvernights)}
-            step={1}
-          />
+          {!isFriendship && (
+            <Slider
+              label="Min date nights"
+              unit="per cycle"
+              value={form.needMinDateNights}
+              onChange={(v) => setField('needMinDateNights', Math.round(v))}
+              min={0}
+              max={Math.max(3, form.prefDateNights)}
+              step={1}
+            />
+          )}
+          {!isFriendship && (
+            <Slider
+              label="Min overnights"
+              unit="per cycle"
+              value={form.needMinOvernights}
+              onChange={(v) => setField('needMinOvernights', Math.round(v))}
+              min={0}
+              max={Math.max(3, form.prefOvernights)}
+              step={1}
+            />
+          )}
         </div>
       </section>
 

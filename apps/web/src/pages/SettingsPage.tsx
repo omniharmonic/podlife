@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { Toggle } from '@/components/ui/Toggle';
 import { Modal } from '@/components/ui/Modal';
 import { EditorialHeading } from '@/components/ui/EditorialHeading';
+import { EmojiPicker } from '@/components/ui/EmojiPicker';
 import { useSetManualAvailability } from '@/hooks/useAvailability';
 import { usePodsList, useCreatePod } from '@/hooks/usePods';
 import { useInstallPrompt } from '@/hooks/useInstallPrompt';
@@ -19,8 +20,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { me as meApi, getSessionToken, calendars as calendarsApi } from '@/lib/api';
 import { useUiStore } from '@/stores/ui.store';
 import { format, getWeekStart } from '@/lib/dates';
-
-const POD_EMOJIS = ['🏠', '🌳', '🌻', '🪴', '🍃', '🌿', '🌞', '🌙', '✨', '🔥'];
 
 const COMMON_TZ = [
   'America/Los_Angeles',
@@ -631,26 +630,7 @@ export function SettingsPage() {
             onChange={(e) => setPodName(e.currentTarget.value)}
             required
           />
-          <div>
-            <span className="eyebrow text-ink-500 mb-2 block">Emoji</span>
-            <div className="flex flex-wrap gap-2">
-              {POD_EMOJIS.map((e) => (
-                <button
-                  type="button"
-                  key={e}
-                  onClick={() => setPodEmoji(e)}
-                  className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl border transition-all ${
-                    podEmoji === e
-                      ? 'bg-terracotta-50 border-terracotta-500 scale-105'
-                      : 'bg-cream border-ink-100 hover:bg-ink-50'
-                  }`}
-                  aria-label={`Choose emoji ${e}`}
-                >
-                  {e}
-                </button>
-              ))}
-            </div>
-          </div>
+          <EmojiPicker value={podEmoji} onChange={setPodEmoji} label="Emoji" />
           <Input
             label="Invite members (optional)"
             placeholder="email@example.com, another@example.com"

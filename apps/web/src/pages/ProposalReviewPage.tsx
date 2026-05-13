@@ -200,7 +200,16 @@ export function ProposalReviewPage() {
                   onAccept={() =>
                     respond
                       .mutateAsync({ blockId: block.id, response: 'accepted' })
-                      .then(() => showToast('Accepted', 'success'))
+                      .then((res) => {
+                        if (res.calendarWarning) {
+                          showToast(
+                            'Accepted — calendar sync is catching up',
+                            'success',
+                          );
+                        } else {
+                          showToast('Accepted', 'success');
+                        }
+                      })
                       .catch(() => showToast('Could not accept', 'error'))
                   }
                   onDecline={() =>

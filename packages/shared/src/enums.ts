@@ -42,3 +42,11 @@ export type NotificationChannel = (typeof NOTIFICATION_CHANNEL)[number];
 
 export const POD_ROLE = ['admin', 'member'] as const;
 export type PodRole = (typeof POD_ROLE)[number];
+
+/**
+ * Distinguishes romantic partnerships from platonic friendships. Stored on
+ * partnerships + partner_invites; affects which preference fields the UI
+ * exposes (friendships hide overnights / date nights) but not the optimizer.
+ */
+export const RELATIONSHIP_TYPE = ['partnership', 'friendship'] as const;
+export type RelationshipType = (typeof RELATIONSHIP_TYPE)[number];

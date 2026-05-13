@@ -36,6 +36,13 @@
       "when": 1778460000000,
       "tag": "0004_passkeys",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1778550000000,
+      "tag": "0005_friendship",
+      "breakpoints": true
     }
   ]
 }

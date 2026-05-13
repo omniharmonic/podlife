@@ -243,6 +243,12 @@ export const partnerships = pgTable(
       .notNull()
       .references(() => persons.id, { onDelete: 'cascade' }),
     status: partnershipStatusEnum('status').notNull().default('invited'),
+    /**
+     * 'partnership' (romantic) vs 'friendship' (platonic). Friendships hide
+     * overnight/date-night UI affordances but share the same scheduling
+     * machinery — to the optimizer, both are just two-person pairings.
+     */
+    relationshipType: text('relationship_type').notNull().default('partnership'),
     invitedBy: uuid('invited_by')
       .notNull()
       .references(() => persons.id),
@@ -254,6 +260,10 @@ export const partnerships = pgTable(
   },
   (t) => [
     check('partnerships_canonical_order', sql`${t.personAId} < ${t.personBId}`),
+    check(
+      'partnerships_relationship_type_check',
+      sql`${t.relationshipType} IN ('partnership', 'friendship')`,
+    ),
     unique('uq_partnerships_pair').on(t.personAId, t.personBId),
     index('idx_partnerships_persons').on(t.personAId, t.personBId),
     index('idx_partnerships_status').on(t.status),
@@ -269,12 +279,20 @@ export const partnerInvites = pgTable(
       .references(() => persons.id, { onDelete: 'cascade' }),
     token: text('token').notNull().unique(),
     displayHint: text('display_hint'),
+    /** Inviter's chosen relationship type — applied to the partnership on accept. */
+    relationshipType: text('relationship_type').notNull().default('partnership'),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     acceptedAt: timestamp('accepted_at', { withTimezone: true }),
     acceptedBy: uuid('accepted_by').references(() => persons.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index('idx_partner_invites_token').on(t.token)],
+  (t) => [
+    check(
+      'partner_invites_relationship_type_check',
+      sql`${t.relationshipType} IN ('partnership', 'friendship')`,
+    ),
+    index('idx_partner_invites_token').on(t.token),
+  ],
 );
 
 export const partnershipPreferences = pgTable(

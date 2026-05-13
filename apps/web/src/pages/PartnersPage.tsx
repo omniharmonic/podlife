@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
+import type { RelationshipType } from '@pod-life/shared';
 import { usePartnersList, useInvitePartner } from '@/hooks/usePartners';
 import { useProposals } from '@/hooks/useSchedule';
 import { useAuth } from '@/hooks/useAuth';
@@ -16,6 +17,7 @@ export function PartnersPage() {
   const invite = useInvitePartner();
   const { person } = useAuth();
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteType, setInviteType] = useState<RelationshipType>('partnership');
   const [inviteData, setInviteData] = useState<{
     inviteUrl: string;
     token: string;
@@ -41,18 +43,21 @@ export function PartnersPage() {
     }
   }
 
-  async function startInvite() {
+  function openInvite() {
     setInviteOpen(true);
     setInviteData(null);
+    setInviteType('partnership');
+  }
+
+  async function generateInvite(type: RelationshipType) {
     try {
-      const result = await invite.mutateAsync();
+      const result = await invite.mutateAsync({ relationshipType: type });
       setInviteData(result);
     } catch (err) {
       showToast(
         err instanceof Error ? err.message : 'Could not create invite',
         'error',
       );
-      setInviteOpen(false);
     }
   }
 
@@ -75,7 +80,7 @@ export function PartnersPage() {
         <EditorialHeading level={1} eyebrow="Partners">
           People you share time with
         </EditorialHeading>
-        <Button onClick={startInvite}>Invite</Button>
+        <Button onClick={openInvite}>Invite</Button>
       </header>
 
       {partners.isLoading ? (
@@ -84,7 +89,7 @@ export function PartnersPage() {
         <EmptyState
           title="No partners yet"
           description="Send a private link to one of the people you love. When they accept, you can each share what kind of time matters with the other."
-          action={<Button onClick={startInvite}>Send your first invite</Button>}
+          action={<Button onClick={openInvite}>Send your first invite</Button>}
         />
       ) : (
         <div className="flex flex-col gap-4">
@@ -113,20 +118,64 @@ export function PartnersPage() {
       <Modal
         open={inviteOpen}
         onClose={() => setInviteOpen(false)}
-        title="Invite a partner"
+        title={inviteType === 'friendship' ? 'Invite a friend' : 'Invite a partner'}
         footer={
-          inviteData && (
+          inviteData ? (
             <>
               <Button variant="ghost" onClick={() => setInviteOpen(false)}>
                 Done
               </Button>
               <Button onClick={copyLink}>Copy link</Button>
             </>
+          ) : (
+            <>
+              <Button variant="ghost" onClick={() => setInviteOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => generateInvite(inviteType)}
+                loading={invite.isPending}
+              >
+                Generate invite link
+              </Button>
+            </>
           )
         }
       >
-        {invite.isPending && (
-          <p className="text-ink-500 italic text-sm">Generating link…</p>
+        {!inviteData && (
+          <div className="flex flex-col gap-4">
+            <fieldset className="flex flex-col gap-2">
+              <legend className="eyebrow text-ink-500 mb-1">
+                What kind of relationship?
+              </legend>
+              <div className="grid grid-cols-2 gap-2">
+                {(['partnership', 'friendship'] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setInviteType(t)}
+                    className={`text-left rounded-xl border px-4 py-3 transition-all ${
+                      inviteType === t
+                        ? 'border-terracotta-500 bg-terracotta-50/60'
+                        : 'border-ink-100 bg-cream hover:bg-ink-50'
+                    }`}
+                  >
+                    <p className="font-display text-ink-800 text-lg leading-tight">
+                      {t === 'partnership' ? 'Partnership' : 'Friendship'}
+                    </p>
+                    <p className="text-xs text-ink-500 mt-1">
+                      {t === 'partnership'
+                        ? 'Romantic — date nights and overnights included.'
+                        : 'Platonic — just shared hours, no date nights or overnights.'}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+            <p className="text-xs text-ink-500 italic">
+              You can switch this later from the relationship's settings.
+            </p>
+          </div>
         )}
         {inviteData && (
           <div className="flex flex-col gap-4">

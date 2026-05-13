@@ -7,9 +7,8 @@ import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { EditorialHeading } from '@/components/ui/EditorialHeading';
+import { EmojiPicker } from '@/components/ui/EmojiPicker';
 import { useUiStore } from '@/stores/ui.store';
-
-const POD_EMOJIS = ['🏠', '🌳', '🌻', '🪴', '🍃', '🌿', '🌞', '🌙', '✨', '🔥'];
 
 /**
  * Pods list. When the user has exactly one pod we redirect to its detail
@@ -152,26 +151,7 @@ export function PodsPage() {
             onChange={(e) => setName(e.currentTarget.value)}
             required
           />
-          <div>
-            <span className="eyebrow text-ink-500 mb-2 block">Emoji</span>
-            <div className="flex flex-wrap gap-2">
-              {POD_EMOJIS.map((e) => (
-                <button
-                  type="button"
-                  key={e}
-                  onClick={() => setEmoji(e)}
-                  className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl border transition-all ${
-                    emoji === e
-                      ? 'bg-terracotta-50 border-terracotta-500 scale-105'
-                      : 'bg-cream border-ink-100 hover:bg-ink-50'
-                  }`}
-                  aria-label={`Choose emoji ${e}`}
-                >
-                  {e}
-                </button>
-              ))}
-            </div>
-          </div>
+          <EmojiPicker value={emoji} onChange={setEmoji} label="Emoji" />
           <Input
             label="Invite members (optional)"
             placeholder="email@example.com, another@example.com"
