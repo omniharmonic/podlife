@@ -265,7 +265,6 @@ export const partnerships = pgTable(
     invitedBy: uuid('invited_by')
       .notNull()
       .references(() => persons.id),
-    inviteToken: text('invite_token').unique(),
     colorA: text('color_a').default('#E07A5F'),
     colorB: text('color_b').default('#81B29A'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -295,28 +294,52 @@ export const partnerships = pgTable(
   ],
 );
 
-export const partnerInvites = pgTable(
-  'partner_invites',
+/**
+ * Unified invite table for partner *and* pod invites. The token is the bearer
+ * credential — anyone with the link can accept. No email gating: cold invitees
+ * sign up via the standard login-code flow with the invite token attached,
+ * then the invite is applied on first verify.
+ *
+ * `kind` discriminates the two flavors:
+ *   - 'partner' → on accept, create a partnership between invitedBy and
+ *     acceptedBy. `relationshipType` and `podId IS NULL`.
+ *   - 'pod' → on accept, add acceptedBy to `podId`. `relationshipType IS NULL`.
+ *
+ * Pods are horizontal: any member of the pod can mint an invite (see
+ * pods.service.createPodInvite authorization). There is no admin-only role.
+ */
+export const invites = pgTable(
+  'invites',
   {
     id: uuid('id').primaryKey().default(sql`uuid_generate_v4()`),
+    token: text('token').notNull().unique(),
+    kind: text('kind').notNull(),
     invitedBy: uuid('invited_by')
       .notNull()
       .references(() => persons.id, { onDelete: 'cascade' }),
-    token: text('token').notNull().unique(),
-    displayHint: text('display_hint'),
-    /** Inviter's chosen relationship type — applied to the partnership on accept. */
-    relationshipType: text('relationship_type').notNull().default('partnership'),
+    /** Set when kind='pod'. NULL for partner invites. */
+    podId: uuid('pod_id').references(() => pods.id, { onDelete: 'cascade' }),
+    /** Set when kind='partner'. NULL for pod invites. */
+    relationshipType: text('relationship_type'),
+    /** Freeform label shown only to the inviter ("Sam", "the new metamour") so
+     *  outstanding invites are recognizable. Never exposed to the accepter. */
+    inviteeDisplayHint: text('invitee_display_hint'),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
     acceptedAt: timestamp('accepted_at', { withTimezone: true }),
-    acceptedBy: uuid('accepted_by').references(() => persons.id),
+    acceptedBy: uuid('accepted_by').references(() => persons.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
+    check('invites_kind_check', sql`${t.kind} IN ('partner', 'pod')`),
     check(
-      'partner_invites_relationship_type_check',
-      sql`${t.relationshipType} IN ('partnership', 'friendship')`,
+      'invites_pod_kind_consistency',
+      sql`(${t.kind} = 'pod' AND ${t.podId} IS NOT NULL AND ${t.relationshipType} IS NULL)
+        OR (${t.kind} = 'partner' AND ${t.podId} IS NULL AND ${t.relationshipType} IN ('partnership', 'friendship'))`,
     ),
-    index('idx_partner_invites_token').on(t.token),
+    index('idx_invites_token').on(t.token),
+    index('idx_invites_pod').on(t.podId),
+    index('idx_invites_invited_by').on(t.invitedBy),
   ],
 );
 
@@ -379,7 +402,6 @@ export const podMembers = pgTable(
       .notNull()
       .references(() => persons.id, { onDelete: 'cascade' }),
     role: text('role').notNull().default('member'),
-    inviteToken: text('invite_token').unique(),
     joinedAt: timestamp('joined_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },

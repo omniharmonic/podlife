@@ -2062,99 +2062,109 @@ app.route('/api/schedule', scheduleRoutes);
 export default app;
 ```
 
-### 8.2 Partner Management Routes
+### 8.2 Invite Routes (unified partner + pod)
+
+Partner and pod invites share a single API surface — `/api/invites` — because the lifecycle (mint → preview → accept | revoke) is identical regardless of what's on the other side of the bearer token. Kind-specific resource creation lives in `partners.service` and `pods.service` as `materialize*FromInvite` helpers that the invite service dispatches to.
+
+**Route map:**
+
+| Method | Path                                | Auth | Purpose                                                  |
+|--------|-------------------------------------|------|----------------------------------------------------------|
+| POST   | `/api/invites`                      | yes  | Mint invite. Body discriminated by `kind`.               |
+| GET    | `/api/invites`                      | yes  | List invites I created (with status + my displayHint).   |
+| GET    | `/api/invites/:token/preview`       | **no** | Public landing-page lookup. Leaks only `kind`, inviter display name, pod name. |
+| POST   | `/api/invites/:token/accept`        | yes  | Accept. Dispatches by `kind`. Self-accept returns 400.   |
+| DELETE | `/api/invites/:token`               | yes  | Revoke (inviter only). Cannot revoke after acceptance.   |
+
+The preview route is mounted directly on `app` (outside the authed `/api` group) so cold invitees — those with no Person yet — can render the landing page and decide whether to sign up. Cold signup-on-accept reuses the standard login-code flow: the landing page links to `/login?next=/join/:token`, the login page honors a same-origin `next` param, and after first `auth.verify` (which auto-creates a Person) the user lands back on the invite page to complete acceptance.
 
 ```typescript
-// apps/api/src/modules/partners/partners.routes.ts
+// apps/api/src/modules/invites/invites.routes.ts (excerpt)
 
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
-import { z } from 'zod';
-import { nanoid } from 'nanoid';
+import { createInviteSchema } from '@pod-life/shared';
+import { acceptInvite, createInvite, getInvitePreview, listMyInvites, revokeInvite } from './invites.service.js';
 
-const partnerRoutes = new Hono();
-
-// POST /api/partners/invite
-// Generate an invite link for a new partner
-partnerRoutes.post(
-  '/invite',
-  zValidator('json', z.object({
-    displayHint: z.string().optional(),  // "You'll see this as..."
-  })),
-  async (c) => {
-    const person = c.get('person');
-    const inviteToken = nanoid(32);
-
-    // Create a pending partnership (person_b is unknown until they accept)
-    // We store this as an invite record, not a full partnership yet
-    const invite = await db.insert(partnerInvites).values({
-      invitedBy: person.id,
-      token: inviteToken,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-    }).returning();
-
-    const inviteLink = `${process.env.APP_URL}/invite/${inviteToken}`;
-
-    return c.json({
-      inviteLink,
-      expiresAt: invite[0].expiresAt,
-    });
-  }
-);
-
-// POST /api/partners/accept/:token
-// Accept a partner invitation
-partnerRoutes.post('/accept/:token', async (c) => {
-  const person = c.get('person');
-  const token = c.req.param('token');
-
-  const invite = await db.query.partnerInvites.findFirst({
-    where: and(
-      eq(partnerInvites.token, token),
-      gt(partnerInvites.expiresAt, new Date()),
-      isNull(partnerInvites.acceptedAt),
-    ),
-  });
-
-  if (!invite) {
-    return c.json({ error: 'Invalid or expired invite' }, 404);
-  }
-
-  if (invite.invitedBy === person.id) {
-    return c.json({ error: 'Cannot partner with yourself' }, 400);
-  }
-
-  // Create partnership with canonical ordering (smaller UUID first)
-  const [personA, personB] = [invite.invitedBy, person.id].sort();
-
-  const partnership = await db.insert(partnerships).values({
-    personAId: personA,
-    personBId: personB,
-    status: 'active',
-    invitedBy: invite.invitedBy,
-  }).returning();
-
-  // Mark invite as used
-  await db.update(partnerInvites)
-    .set({ acceptedAt: new Date() })
-    .where(eq(partnerInvites.id, invite.id));
-
-  // Create default preferences for both people
-  for (const pid of [personA, personB]) {
-    await db.insert(partnershipPreferences).values({
-      partnershipId: partnership[0].id,
-      personId: pid,
-      cadence: 'weekly',
-      prefIdealHours: 4,  // sensible default
-      prefDateNights: 1,
-    });
-  }
-
-  return c.json({
-    partnership: partnership[0],
-    message: 'Partnership created! Set your preferences to get started.',
-  });
+// Public — mounted directly on app at /api/invites BEFORE the authed group.
+export const invitesPublicRoutes = new Hono();
+invitesPublicRoutes.get('/:token/preview', async (c) => {
+  return c.json(await getInvitePreview(c.req.param('token')));
 });
+
+// Authed — mounted inside the api group.
+export const invitesRoutes = new Hono();
+invitesRoutes.post('/', zValidator('json', createInviteSchema), async (c) => {
+  const me = c.get('person');
+  return c.json(await createInvite(me.id, c.req.valid('json')));
+});
+invitesRoutes.get('/', async (c) => c.json({ invites: await listMyInvites(c.get('person').id) }));
+invitesRoutes.post('/:token/accept', async (c) => {
+  const me = c.get('person');
+  return c.json(await acceptInvite(me.id, c.req.param('token')));
+});
+invitesRoutes.delete('/:token', async (c) => {
+  const me = c.get('person');
+  await revokeInvite(me.id, c.req.param('token'));
+  return c.json({ ok: true });
+});
+```
+
+**Body schema (Zod discriminated union — see packages/shared/src/validation.ts):**
+
+```typescript
+export const createInviteSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('partner'),
+    relationshipType: z.enum(['partnership', 'friendship']).default('partnership'),
+    displayHint: z.string().min(1).max(80).optional(),
+  }),
+  z.object({
+    kind: z.literal('pod'),
+    podId: z.string().uuid(),
+    displayHint: z.string().min(1).max(80).optional(),
+  }),
+]);
+```
+
+**`invites` table schema** (replaces the older split `partner_invites` and Redis-based pod tokens — migration `0007_unified_invites.sql`):
+
+```sql
+CREATE TABLE invites (
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  token text NOT NULL UNIQUE,
+  kind text NOT NULL,                                 -- 'partner' | 'pod'
+  invited_by uuid NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
+  pod_id uuid REFERENCES pods(id) ON DELETE CASCADE,  -- NULL for partner
+  relationship_type text,                             -- NULL for pod; 'partnership'|'friendship' for partner
+  invitee_display_hint text,                          -- inviter-private label, NEVER exposed to accepter
+  expires_at timestamptz NOT NULL,
+  revoked_at timestamptz,
+  accepted_at timestamptz,
+  accepted_by uuid REFERENCES persons(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT invites_kind_check CHECK (kind IN ('partner', 'pod')),
+  CONSTRAINT invites_pod_kind_consistency CHECK (
+    (kind = 'pod' AND pod_id IS NOT NULL AND relationship_type IS NULL)
+    OR
+    (kind = 'partner' AND pod_id IS NULL AND relationship_type IN ('partnership', 'friendship'))
+  )
+);
+```
+
+**Privacy contract for preview (CLAUDE.md § Privacy Model):** the public preview response is restricted to `{ kind, inviterDisplayName, podName?, relationshipType?, expiresAt }`. Specifically:
+
+- ❌ Never the inviter's `inviteeDisplayHint` (it's a label they wrote for *themselves* to recognize outstanding invites).
+- ❌ Never pod members other than the inviter (revealing membership would leak who's in the pod to anyone with a link, including link-finders who weren't intended recipients).
+- ❌ Never the inviter's other partnerships / other pods.
+- ✓ The pod *name* IS exposed (it's a property of the invitation itself: "join Pod X").
+- ✓ The inviter's display name IS exposed (so the accepter knows whose invite they're opening).
+
+The accept side is more lenient because the user is authenticated by then; they get the partnership id or pod id they just joined, and the standard pod/partner access rules apply from that point.
+
+**Pods are horizontal (key authorization decision):** any pod member can mint an invite to that pod, not just the creator. The pod-membership check in `createInvite` is defense-in-depth on top of the route-layer membership check — never gated on `role='admin'`. This matches the product intent that pods are collective spaces, not owned-by-one-person rooms.
+
+**Partner-only legacy routes** previously documented here (`POST /api/partners/invite`, `POST /api/partners/accept/:token`) have been removed in favor of the unified surface. `partners.service` retains `createPartnerInvite` and `materializePartnershipFromInvite` as internal helpers called by the invite service.
 
 // PATCH /api/partners/:id/preferences
 // Update scheduling preferences for a partner

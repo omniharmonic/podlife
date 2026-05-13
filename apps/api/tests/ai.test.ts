@@ -96,12 +96,12 @@ describe('ai / parsePreferences route (mocked LLM)', () => {
     });
     const bTok = bVer.body.sessionToken;
 
-    const inv = await call(app, '/api/partners/invite', {
+    const inv = await call(app, '/api/invites', {
       method: 'POST',
       token: aTok,
-      json: {},
+      json: { kind: 'partner' },
     });
-    const acc = await call(app, `/api/partners/accept/${inv.body.token}`, {
+    const acc = await call(app, `/api/invites/${inv.body.token}/accept`, {
       method: 'POST',
       token: bTok,
     });
@@ -140,12 +140,12 @@ describe('ai / parsePreferences route (mocked LLM)', () => {
     const bTok = await authedSession(bEmail);
     const cTok = await authedSession(cEmail);
 
-    const inv = await call(app, '/api/partners/invite', {
+    const inv = await call(app, '/api/invites', {
       method: 'POST',
       token: aTok,
-      json: {},
+      json: { kind: 'partner' },
     });
-    const acc = await call(app, `/api/partners/accept/${inv.body.token}`, {
+    const acc = await call(app, `/api/invites/${inv.body.token}/accept`, {
       method: 'POST',
       token: bTok,
     });
@@ -189,12 +189,12 @@ describe('ai / no API key configured', () => {
     });
     const bTok = v2.body.sessionToken;
 
-    const inv = await call(app, '/api/partners/invite', {
+    const inv = await call(app, '/api/invites', {
       method: 'POST',
       token: tok,
-      json: {},
+      json: { kind: 'partner' },
     });
-    const acc = await call(app, `/api/partners/accept/${inv.body.token}`, {
+    const acc = await call(app, `/api/invites/${inv.body.token}/accept`, {
       method: 'POST',
       token: bTok,
     });

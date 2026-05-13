@@ -38,12 +38,12 @@ async function makePodWithTwo(
   });
   expect(pod.status).toBe(200);
   const podId: string = pod.body.pod.id;
-  const inv = await call(app, `/api/pods/${podId}/invite`, {
+  const inv = await call(app, '/api/invites', {
     method: 'POST',
     token: aTok,
-    json: { role: 'member' },
+    json: { kind: 'pod', podId: podId },
   });
-  await call(app, `/api/pods/join/${inv.body.token}`, {
+  await call(app, `/api/invites/${inv.body.token}/accept`, {
     method: 'POST',
     token: bTok,
   });

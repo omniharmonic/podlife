@@ -53,12 +53,12 @@ describe('accept flow — state machine', () => {
     const a = await authed(app, 'accA');
     const b = await authed(app, 'accB');
 
-    const inv = await call(app, '/api/partners/invite', {
+    const inv = await call(app, '/api/invites', {
       method: 'POST',
       token: a.token,
-      json: {},
+      json: { kind: 'partner' },
     });
-    const acc = await call(app, `/api/partners/accept/${inv.body.token}`, {
+    const acc = await call(app, `/api/invites/${inv.body.token}/accept`, {
       method: 'POST',
       token: b.token,
     });

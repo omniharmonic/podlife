@@ -1,7 +1,6 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import {
-  inviteParterSchema,
   proposePartnershipCadenceSchema,
   updatePartnershipPreferencesSchema,
   updatePartnershipStatusSchema,
@@ -9,8 +8,6 @@ import {
 } from '@pod-life/shared';
 import {
   acceptCadenceProposal,
-  acceptInvite,
-  createInvite,
   declineCadenceProposal,
   getMyPreferences,
   listPartners,
@@ -22,19 +19,9 @@ import {
 
 export const partnersRoutes = new Hono();
 
-partnersRoutes.post('/invite', zValidator('json', inviteParterSchema), async (c) => {
-  const me = c.get('person');
-  const { displayHint, relationshipType } = c.req.valid('json');
-  const result = await createInvite(me.id, displayHint, relationshipType);
-  return c.json(result);
-});
-
-partnersRoutes.post('/accept/:token', async (c) => {
-  const me = c.get('person');
-  const token = c.req.param('token');
-  const result = await acceptInvite(me.id, token);
-  return c.json(result);
-});
+// Invite mint/accept lives on the unified /api/invites module — partner
+// invites and pod invites share preview, accept, and revoke surfaces so the
+// frontend can use a single landing page (/join/:token).
 
 partnersRoutes.get('/', async (c) => {
   const me = c.get('person');

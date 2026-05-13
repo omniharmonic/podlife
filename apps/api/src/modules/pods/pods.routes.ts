@@ -2,16 +2,13 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import {
   createPodSchema,
-  invitePodMemberSchema,
   updatePodPreferencesSchema,
   updatePodSchema,
 } from '@pod-life/shared';
 import {
   createPod,
-  createPodInvite,
   getPodPrefs,
   getPodWithMembers,
-  joinPodWithToken,
   listPodsForPerson,
   updatePod,
   updatePodPrefs,
@@ -19,6 +16,10 @@ import {
 import { requirePodMember } from '../../middleware/pod-access.middleware.js';
 
 export const podsRoutes = new Hono();
+
+// Pod invite mint/accept lives on /api/invites — see modules/invites. Pod
+// invites and partner invites share the same preview/accept surface so the
+// frontend uses a single /join/:token landing page.
 
 podsRoutes.get('/', async (c) => {
   const me = c.get('person');
@@ -31,13 +32,6 @@ podsRoutes.post('/', zValidator('json', createPodSchema), async (c) => {
   const data = c.req.valid('json');
   const pod = await createPod(me.id, data);
   return c.json({ pod });
-});
-
-podsRoutes.post('/join/:token', async (c) => {
-  const me = c.get('person');
-  const token = c.req.param('token');
-  const result = await joinPodWithToken(me.id, token);
-  return c.json(result);
 });
 
 podsRoutes.get('/:id', requirePodMember(), async (c) => {
@@ -56,19 +50,6 @@ podsRoutes.patch(
     const data = c.req.valid('json');
     const pod = await updatePod(id, data);
     return c.json({ pod });
-  },
-);
-
-podsRoutes.post(
-  '/:id/invite',
-  requirePodMember({ role: 'admin' }),
-  zValidator('json', invitePodMemberSchema),
-  async (c) => {
-    const me = c.get('person');
-    const id = c.req.param('id');
-    const { role } = c.req.valid('json');
-    const result = await createPodInvite(id, me.id, role);
-    return c.json(result);
   },
 );
 

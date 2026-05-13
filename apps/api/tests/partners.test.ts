@@ -23,15 +23,15 @@ describe('partners', () => {
     const aTok = await authedSession(app);
     const bTok = await authedSession(app);
 
-    const inv = await call(app, '/api/partners/invite', {
+    const inv = await call(app, '/api/invites', {
       method: 'POST',
       token: aTok,
-      json: { displayHint: 'My partner' },
+      json: { kind: 'partner', displayHint: 'My partner' },
     });
     expect(inv.status).toBe(200);
     expect(inv.body.token).toBeDefined();
 
-    const acc = await call(app, `/api/partners/accept/${inv.body.token}`, {
+    const acc = await call(app, `/api/invites/${inv.body.token}/accept`, {
       method: 'POST',
       token: bTok,
     });
@@ -50,12 +50,12 @@ describe('partners', () => {
     const aTok = await authedSession(app);
     const bTok = await authedSession(app);
 
-    const inv = await call(app, '/api/partners/invite', {
+    const inv = await call(app, '/api/invites', {
       method: 'POST',
       token: aTok,
-      json: {},
+      json: { kind: 'partner' },
     });
-    const acc = await call(app, `/api/partners/accept/${inv.body.token}`, {
+    const acc = await call(app, `/api/invites/${inv.body.token}/accept`, {
       method: 'POST',
       token: bTok,
     });
@@ -77,8 +77,8 @@ describe('partners', () => {
     const bTok = await authedSession(app);
     const cTok = await authedSession(app); // unrelated
 
-    const inv = await call(app, '/api/partners/invite', { method: 'POST', token: aTok, json: {} });
-    await call(app, `/api/partners/accept/${inv.body.token}`, { method: 'POST', token: bTok });
+    const inv = await call(app, '/api/invites', { method: 'POST', token: aTok, json: { kind: 'partner' } });
+    await call(app, `/api/invites/${inv.body.token}/accept`, { method: 'POST', token: bTok });
 
     const cList = await call(app, '/api/partners', { token: cTok });
     expect(cList.status).toBe(200);
@@ -88,8 +88,8 @@ describe('partners', () => {
   it('rejects own invite acceptance', async () => {
     const app = newApp();
     const aTok = await authedSession(app);
-    const inv = await call(app, '/api/partners/invite', { method: 'POST', token: aTok, json: {} });
-    const r = await call(app, `/api/partners/accept/${inv.body.token}`, {
+    const inv = await call(app, '/api/invites', { method: 'POST', token: aTok, json: { kind: 'partner' } });
+    const r = await call(app, `/api/invites/${inv.body.token}/accept`, {
       method: 'POST',
       token: aTok,
     });
@@ -127,14 +127,14 @@ describe('pods', () => {
     expect(c.status).toBe(200);
     const podId = c.body.pod.id;
 
-    const inv = await call(app, `/api/pods/${podId}/invite`, {
+    const inv = await call(app, '/api/invites', {
       method: 'POST',
       token: aTok,
-      json: { role: 'member' },
+      json: { kind: 'pod', podId: podId },
     });
     expect(inv.status).toBe(200);
 
-    const join = await call(app, `/api/pods/join/${inv.body.token}`, {
+    const join = await call(app, `/api/invites/${inv.body.token}/accept`, {
       method: 'POST',
       token: bTok,
     });
@@ -168,12 +168,12 @@ describe('pods', () => {
 
     const c = await call(app, '/api/pods', { method: 'POST', token: aTok, json: { name: 'P1' } });
     const podId = c.body.pod.id;
-    const inv = await call(app, `/api/pods/${podId}/invite`, {
+    const inv = await call(app, '/api/invites', {
       method: 'POST',
       token: aTok,
-      json: { role: 'member' },
+      json: { kind: 'pod', podId: podId },
     });
-    await call(app, `/api/pods/join/${inv.body.token}`, { method: 'POST', token: bTok });
+    await call(app, `/api/invites/${inv.body.token}/accept`, { method: 'POST', token: bTok });
 
     const r = await call(app, `/api/pods/${podId}`, {
       method: 'PATCH',

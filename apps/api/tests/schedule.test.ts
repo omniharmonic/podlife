@@ -32,12 +32,12 @@ describe('schedule cycle (e2e)', () => {
       const b = await authed('sb');
 
       // Partnership.
-      const inv = await call(app, '/api/partners/invite', {
+      const inv = await call(app, '/api/invites', {
         method: 'POST',
         token: a.token,
-        json: {},
+        json: { kind: 'partner' },
       });
-      const acc = await call(app, `/api/partners/accept/${inv.body.token}`, {
+      const acc = await call(app, `/api/invites/${inv.body.token}/accept`, {
         method: 'POST',
         token: b.token,
       });

@@ -275,15 +275,6 @@ export const partners = {
   list() {
     return request<{ partners: PartnerSummary[] }>(`/api/partners`);
   },
-  invite(input: { relationshipType?: RelationshipType } = {}) {
-    return request<{ inviteUrl: string; token: string; expiresAt: string }>(
-      `/api/partners/invite`,
-      {
-        method: 'POST',
-        body: { relationshipType: input.relationshipType ?? 'partnership' },
-      },
-    );
-  },
   updateRelationshipType(partnershipId: string, relationshipType: RelationshipType) {
     return request<{ id: string; relationshipType: RelationshipType }>(
       `/api/partners/${partnershipId}/type`,
@@ -320,12 +311,6 @@ export const partners = {
       body: {},
     });
   },
-  accept(token: string) {
-    return request<{ partnershipId: string }>(
-      `/api/partners/accept/${encodeURIComponent(token)}`,
-      { method: 'POST', body: {} },
-    );
-  },
   getPreferences(partnershipId: string) {
     return request<{ preferences: PartnershipPreference } | PartnershipPreference>(
       `/api/partners/${partnershipId}/preferences`,
@@ -336,6 +321,73 @@ export const partners = {
       `/api/partners/${partnershipId}/preferences`,
       { method: 'PATCH', body: patch },
     ).then(unwrap<PartnershipPreference>('preferences'));
+  },
+};
+
+// ─── Invites (unified: partner + pod) ─────────────────────────────────────
+//
+// All invite minting / accepting / previewing goes through /api/invites.
+// Preview is unauthenticated so cold invitees can render the landing page
+// before they have a session.
+
+export type InviteKind = 'partner' | 'pod';
+
+export interface InvitePreview {
+  kind: InviteKind;
+  inviterDisplayName: string;
+  podName?: string;
+  relationshipType?: RelationshipType;
+  expiresAt: string;
+}
+
+export interface MyInvite {
+  token: string;
+  kind: InviteKind;
+  podId: string | null;
+  podName: string | null;
+  relationshipType: RelationshipType | null;
+  displayHint: string | null;
+  expiresAt: string;
+  acceptedAt: string | null;
+  acceptedByDisplayName: string | null;
+  revokedAt: string | null;
+}
+
+export type CreateInviteInput =
+  | { kind: 'partner'; relationshipType?: RelationshipType; displayHint?: string }
+  | { kind: 'pod'; podId: string; displayHint?: string };
+
+export type AcceptInviteResult =
+  | { kind: 'partner'; partnershipId: string }
+  | { kind: 'pod'; podId: string };
+
+export const invites = {
+  create(input: CreateInviteInput) {
+    return request<{ token: string; expiresAt: string; kind: InviteKind }>(`/api/invites`, {
+      method: 'POST',
+      body: input,
+    });
+  },
+  preview(token: string) {
+    // No bearer needed — the public mount serves this without auth, so cold
+    // invitees can render the landing page before any session exists.
+    return request<InvitePreview>(`/api/invites/${encodeURIComponent(token)}/preview`, {
+      unauthenticated: true,
+    });
+  },
+  accept(token: string) {
+    return request<AcceptInviteResult>(`/api/invites/${encodeURIComponent(token)}/accept`, {
+      method: 'POST',
+      body: {},
+    });
+  },
+  revoke(token: string) {
+    return request<{ ok: true }>(`/api/invites/${encodeURIComponent(token)}`, {
+      method: 'DELETE',
+    });
+  },
+  listMine() {
+    return request<{ invites: MyInvite[] }>(`/api/invites`);
   },
 };
 

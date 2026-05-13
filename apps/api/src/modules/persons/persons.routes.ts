@@ -14,7 +14,7 @@ import {
   calendarConnections,
   manualAvailability,
   notifications,
-  partnerInvites,
+  invites,
   partnerships,
   partnershipPreferences,
   podMembers,
@@ -235,12 +235,14 @@ personsRoutes.delete('/me', async (c) => {
     .update(schedulingCycles)
     .set({ triggeredBy: null })
     .where(eq(schedulingCycles.triggeredBy, me.id));
-  // partner_invites: accepted_by has FK with no cascade — null it out.
-  // Invites the user *created* (invitedBy) cascade per their FK.
+  // invites.accepted_by has FK with ON DELETE SET NULL — null it out
+  // explicitly so the audit history of accepted invites stays intact even as
+  // the accepting person is removed. Invites the user *created* (invited_by)
+  // cascade via their FK.
   await db
-    .update(partnerInvites)
+    .update(invites)
     .set({ acceptedBy: null })
-    .where(eq(partnerInvites.acceptedBy, me.id));
+    .where(eq(invites.acceptedBy, me.id));
   // pods.created_by is NOT NULL — for any pod the user created, we delete the
   // pod outright (cascades pod_members, pod_preferences). For shared pods that
   // someone else created, the user's pod_member row will cascade.

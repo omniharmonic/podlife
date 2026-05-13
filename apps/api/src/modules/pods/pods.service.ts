@@ -1,7 +1,7 @@
 /**
  * Pods service: create pods, manage members, manage prefs.
  */
-import { and, eq, gt, isNotNull } from 'drizzle-orm';
+import { and, eq, isNotNull } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import {
   POD_INVITE_TTL_DAYS,
@@ -12,6 +12,7 @@ import {
 } from '@pod-life/shared';
 import { db } from '../../db/index.js';
 import {
+  invites,
   podMembers,
   podPreferences,
   pods,
@@ -21,8 +22,8 @@ import {
   ConflictError,
   ForbiddenError,
   NotFoundError,
+  ValidationError,
 } from '../../lib/errors.js';
-import { config } from '../../lib/config.js';
 
 export interface CreatePodInput {
   name: string;
@@ -121,72 +122,76 @@ export async function updatePod(
   return toPodDto(row);
 }
 
-export async function createPodInvite(
+/**
+ * Mint a pod invite record. Pods are horizontal — any current pod member can
+ * invite (the route layer's requirePodMember middleware enforces this). The
+ * resulting token is a bearer credential: anyone with the link can later
+ * accept via the unified /api/invites/:token/accept endpoint.
+ */
+export async function createPodInviteRecord(
   podId: string,
   inviterId: string,
-  role: 'admin' | 'member' = 'member',
-): Promise<{ inviteUrl: string; token: string; expiresAt: Date }> {
-  void inviterId;
-  // Pod invites use the pod_members table with a token and joined_at IS NULL.
-  // We instead create a sentinel row using an ephemeral UUID pseudo-person?
-  // Simpler: use a dedicated invite token stored against an invite row.
-  // We'll piggy-back on pod_members.invite_token but that requires a person_id.
-  // Easier: the invite token lives in the partner_invites table conceptually,
-  // but it must scope to a pod. We'll create a row in pod_members with a
-  // non-existent person_id won't work due to FK. So we use a small lookup
-  // table-less approach: encode (podId, role, expiresAt) into a Redis token.
+  displayHint?: string,
+): Promise<{ token: string; expiresAt: Date }> {
   const token = nanoid(32);
   const expiresAt = new Date(Date.now() + POD_INVITE_TTL_DAYS * 24 * 60 * 60 * 1000);
-  // Use Redis to keep it simple — no schema change needed.
-  const { redis, redisFor } = await import('../../lib/redis.js');
-  const key = redisFor('pod-invite')(token);
-  await redis.set(
-    key,
-    JSON.stringify({ podId, role, expiresAt: expiresAt.toISOString() }),
-    Math.ceil((expiresAt.getTime() - Date.now()) / 1000),
-  );
-  const inviteUrl = `${config.frontendUrl}/pods/join/${token}`;
-  return { inviteUrl, token, expiresAt };
+  await db.insert(invites).values({
+    kind: 'pod',
+    invitedBy: inviterId,
+    podId,
+    token,
+    inviteeDisplayHint: displayHint ?? null,
+    expiresAt,
+  });
+  return { token, expiresAt };
 }
 
-export async function joinPodWithToken(
-  personId: string,
-  token: string,
-): Promise<{ podId: string }> {
-  const { redis, redisFor } = await import('../../lib/redis.js');
-  const key = redisFor('pod-invite')(token);
-  const raw = await redis.get(key);
-  if (!raw) throw new NotFoundError('Invite not found or expired');
-  const data = JSON.parse(raw) as { podId: string; role: 'admin' | 'member'; expiresAt: string };
-  if (new Date(data.expiresAt) < new Date()) {
-    await redis.del(key);
-    throw new NotFoundError('Invite expired');
-  }
+export type InviteRow = typeof invites.$inferSelect;
 
-  // Check if already a member.
-  const existing = await db
+/**
+ * Apply a pre-validated pod invite: add the accepter to pod_members (or
+ * reactivate their row if they previously left), and mark the invite
+ * accepted. The caller (invites.service) is responsible for token lookup,
+ * expiry/revocation, and dispatching to this helper based on `kind`.
+ */
+export async function materializePodMembershipFromInvite(
+  invite: InviteRow,
+  acceptingPersonId: string,
+): Promise<{ podId: string }> {
+  if (invite.kind !== 'pod') {
+    throw new ValidationError('Invite is not a pod invite');
+  }
+  if (!invite.podId) {
+    throw new ValidationError('Pod invite missing pod reference');
+  }
+  const podId = invite.podId;
+
+  const [existing] = await db
     .select()
     .from(podMembers)
-    .where(and(eq(podMembers.podId, data.podId), eq(podMembers.personId, personId)))
+    .where(and(eq(podMembers.podId, podId), eq(podMembers.personId, acceptingPersonId)))
     .limit(1);
-  if (existing[0]) {
-    if (existing[0].joinedAt) throw new ConflictError('Already a pod member');
+  if (existing) {
+    if (existing.joinedAt) throw new ConflictError('Already a pod member');
     await db
       .update(podMembers)
-      .set({ joinedAt: new Date(), role: data.role })
-      .where(and(eq(podMembers.podId, data.podId), eq(podMembers.personId, personId)));
+      .set({ joinedAt: new Date() })
+      .where(and(eq(podMembers.podId, podId), eq(podMembers.personId, acceptingPersonId)));
   } else {
     await db.insert(podMembers).values({
-      podId: data.podId,
-      personId,
-      role: data.role,
+      podId,
+      personId: acceptingPersonId,
+      role: 'member',
       joinedAt: new Date(),
     });
   }
-  // One-shot token.
-  await redis.del(key);
-  void gt;
-  return { podId: data.podId };
+
+  await db
+    .update(invites)
+    .set({ acceptedAt: new Date(), acceptedBy: acceptingPersonId })
+    .where(eq(invites.id, invite.id));
+
+  return { podId };
 }
 
 export async function getPodPrefs(podId: string): Promise<PodPrefDto> {
