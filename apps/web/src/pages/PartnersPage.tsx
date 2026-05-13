@@ -18,6 +18,8 @@ export function PartnersPage() {
   const { person } = useAuth();
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteType, setInviteType] = useState<RelationshipType>('partnership');
+  // The server no longer returns a pre-formed URL; the frontend owns the
+  // /join/:token convention so we derive inviteUrl from the token below.
   const [inviteData, setInviteData] = useState<{
     inviteUrl: string;
     token: string;
@@ -52,7 +54,11 @@ export function PartnersPage() {
   async function generateInvite(type: RelationshipType) {
     try {
       const result = await invite.mutateAsync({ relationshipType: type });
-      setInviteData(result);
+      setInviteData({
+        token: result.token,
+        expiresAt: result.expiresAt,
+        inviteUrl: `${window.location.origin}/join/${encodeURIComponent(result.token)}`,
+      });
     } catch (err) {
       showToast(
         err instanceof Error ? err.message : 'Could not create invite',

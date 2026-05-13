@@ -68,12 +68,12 @@ describe('calendar titles — buildTitleSuffix', () => {
     const a = await authed(app, 'titA');
     const b = await authed(app, 'titB');
 
-    const inv = await call(app, '/api/partners/invite', {
+    const inv = await call(app, '/api/invites', {
       method: 'POST',
       token: a.token,
-      json: {},
+      json: { kind: 'partner' },
     });
-    const acc = await call(app, `/api/partners/accept/${inv.body.token}`, {
+    const acc = await call(app, `/api/invites/${inv.body.token}/accept`, {
       method: 'POST',
       token: b.token,
     });
@@ -123,12 +123,12 @@ describe('calendar titles — buildTitleSuffix', () => {
     const a = await authed(app, 'titFA');
     const b = await authed(app, 'titFB');
 
-    const inv = await call(app, '/api/partners/invite', {
+    const inv = await call(app, '/api/invites', {
       method: 'POST',
       token: a.token,
-      json: { relationshipType: 'friendship' },
+      json: { kind: 'partner', relationshipType: 'friendship' },
     });
-    const acc = await call(app, `/api/partners/accept/${inv.body.token}`, {
+    const acc = await call(app, `/api/invites/${inv.body.token}/accept`, {
       method: 'POST',
       token: b.token,
     });

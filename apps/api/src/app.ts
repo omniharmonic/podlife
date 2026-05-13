@@ -19,6 +19,7 @@ import { personsRoutes } from './modules/persons/persons.routes.js';
 import { notificationsRoutes } from './modules/persons/notifications.routes.js';
 import { partnersRoutes } from './modules/partners/partners.routes.js';
 import { podsRoutes } from './modules/pods/pods.routes.js';
+import { invitesPublicRoutes, invitesRoutes } from './modules/invites/invites.routes.js';
 import { chatRoutes } from './modules/pods/chat.routes.js';
 import { notesRoutes } from './modules/pods/notes.routes.js';
 import { healthRoutes as podHealthRoutes } from './modules/pods/health.routes.js';
@@ -86,6 +87,11 @@ export function buildApp(): Hono {
   app.route('/internal', internalRoutes);
   // Vercel Cron entry points (Bearer CRON_SECRET inside the handler).
   app.route('/api/cron', cronRoutes);
+  // Public invite preview — mounted BEFORE the authed /api group so
+  // requireAuth doesn't apply. Only path that matches here is
+  // GET /api/invites/:token/preview; everything else under /api/invites
+  // (mint, list, accept, revoke) falls through to the authed router below.
+  app.route('/api/invites', invitesPublicRoutes);
 
   // Authenticated routes ------------------------------------------------------
   const api = new Hono();
@@ -97,6 +103,7 @@ export function buildApp(): Hono {
   api.route('/', notificationsRoutes); // /me/notifications, etc.
   api.route('/partners', partnersRoutes);
   api.route('/pods', podsRoutes);
+  api.route('/invites', invitesRoutes);
   api.route('/pods', chatRoutes); // /pods/:id/chat
   api.route('/pods', notesRoutes); // /pods/:id/notes
   api.route('/pods', podHealthRoutes); // /pods/:id/health

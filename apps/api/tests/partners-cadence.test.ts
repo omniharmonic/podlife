@@ -44,12 +44,12 @@ describe('partners — cadence confirmation flow', () => {
   }> {
     const a = await authed(app, 'cadA');
     const b = await authed(app, 'cadB');
-    const inv = await call(app, '/api/partners/invite', {
+    const inv = await call(app, '/api/invites', {
       method: 'POST',
       token: a.token,
-      json: {},
+      json: { kind: 'partner' },
     });
-    const acc = await call(app, `/api/partners/accept/${inv.body.token}`, {
+    const acc = await call(app, `/api/invites/${inv.body.token}/accept`, {
       method: 'POST',
       token: b.token,
     });
@@ -281,12 +281,12 @@ describe('partners — cadence confirmation flow', () => {
       const b = await authed(app, 'cadSPB');
 
       // Partnership first.
-      const inv = await call(app, '/api/partners/invite', {
+      const inv = await call(app, '/api/invites', {
         method: 'POST',
         token: a.token,
-        json: {},
+        json: { kind: 'partner' },
       });
-      const acc = await call(app, `/api/partners/accept/${inv.body.token}`, {
+      const acc = await call(app, `/api/invites/${inv.body.token}/accept`, {
         method: 'POST',
         token: b.token,
       });
@@ -299,12 +299,12 @@ describe('partners — cadence confirmation flow', () => {
         json: { name: 'Coven', emoji: '🌙' },
       });
       const podId = pod.body.pod.id;
-      const podInv = await call(app, `/api/pods/${podId}/invite`, {
+      const podInv = await call(app, '/api/invites', {
         method: 'POST',
         token: a.token,
-        json: { role: 'member' },
+        json: { kind: 'pod', podId: podId },
       });
-      await call(app, `/api/pods/join/${podInv.body.token}`, {
+      await call(app, `/api/invites/${podInv.body.token}/accept`, {
         method: 'POST',
         token: b.token,
       });

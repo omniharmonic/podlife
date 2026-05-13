@@ -272,22 +272,31 @@ Sub-tasks:
 
 ---
 
-### [P2.1] Partner Invite & Accept Flow
+### [P2.1] Unified Invite Flow (partner + pod) ✓ implemented
 
-**Arch Ref:** § 8.2 (Partner Management Routes)
+**Arch Ref:** § 8.2 (Partner Management Routes), updated for unified `/api/invites`
 **Depends On:** → P1.3 (auth), → P1.1 (schema)
 **Effort:** 2 days
-**Deliverable:** User A can generate an invite link, User B can accept it, creating a bidirectional partnership.
+**Deliverable:** A single bearer-token invite flow that handles both partner and pod invites, supports signup-on-accept for cold invitees, and is owned by a unified `/api/invites` module rather than split between `/partners` and `/pods` namespaces.
 
-Sub-tasks:
+**Design decisions (locked in 2026-05-13):**
 
-- [P2.1.1] Create `partner_invites` table (if not in initial migration) with token, expiry, and acceptance tracking
-- [P2.1.2] Implement `POST /api/partners/invite` — generate invite token, return sharable link per § 8.2
-- [P2.1.3] Implement `POST /api/partners/accept/:token` — validate token, create partnership with canonical ordering, create default preferences per § 8.2
-- [P2.1.4] Implement `GET /api/partners` — list partnerships with partner display info and own preferences per § 8.2
-- [P2.1.5] Implement `PATCH /api/partners/:id/status` — pause or archive a partnership
-- [P2.1.6] Add authorization check: only partnership members can view/modify
-- [P2.1.7] Write integration tests: invite generation, acceptance, duplicate prevention, self-partnership rejection, expired token handling
+- **The link is the credential.** No email gating. Anyone with the token can accept; the inviter doesn't pre-specify an email. This matches Notion / Linear shareable-link conventions and lets the inviter share via any channel.
+- **Pods are horizontal.** Any pod member (not just admins) can mint a pod invite. There is no admin-only authorization on `POST /api/invites` for pod kind — only pod membership.
+- **Partnership and pod membership are orthogonal.** Accepting a pod invite does NOT auto-create partnerships with other pod members. A pod can contain metamours who don't share romantic relationships; that's the whole point. Optional partnership setup is a separate user action after joining.
+- **Signup-on-accept piggy-backs on existing auth.** The login-code flow already auto-creates a Person on first verify, so cold invitees use the standard sign-in flow with `?next=/join/:token` on the login page, then the frontend POSTs to `/api/invites/:token/accept` once a session exists. No new auth coupling needed.
+- **Preview is public.** `GET /api/invites/:token/preview` is mounted before the authed `/api` group and leaks only `kind`, `inviterDisplayName`, and `podName` (when kind=pod). Never the inviter's `inviteeDisplayHint` (inviter-private label) or any pod member list.
+
+Sub-tasks (all complete):
+
+- [P2.1.1] Unified `invites` table with kind discriminator (`partner` | `pod`), optional `pod_id`, optional `relationship_type`, `revoked_at`/`accepted_at` lifecycle, and a DB CHECK enforcing kind/podId/relationshipType consistency. Migration `0007_unified_invites.sql` also drops the dead `partnerships.invite_token` and `pod_members.invite_token` columns.
+- [P2.1.2] `POST /api/invites` (authed) — Zod discriminated-union body: `{ kind: 'partner', relationshipType?, displayHint? }` or `{ kind: 'pod', podId, displayHint? }`. For pod kind the service double-checks pod membership (defense in depth on top of the route check).
+- [P2.1.3] `POST /api/invites/:token/accept` (authed) — dispatches by `kind` to `materializePartnershipFromInvite` or `materializePodMembershipFromInvite`. Rejects self-accept, revoked, expired, already-accepted.
+- [P2.1.4] `GET /api/invites/:token/preview` (PUBLIC, unauthed) — returns minimal info for the landing page. Mounted on `app` directly, before the authed `/api` group.
+- [P2.1.5] `GET /api/invites` (authed) — list invites I created, with current status and the (inviter-only) displayHint label.
+- [P2.1.6] `DELETE /api/invites/:token` (authed) — revoke an invite I created. Cannot revoke after acceptance.
+- [P2.1.7] `GET /api/partners`, `PATCH /api/partners/:id/status`, partnership membership authorization per § 8.2 — unchanged.
+- [P2.1.8] Integration tests in `tests/invites.test.ts` covering: public preview reachable without auth, preview privacy (no leak of pod members or inviter's displayHint), cold signup-on-accept (brand-new email → magic code → verify → accept), revoke authorization (only inviter can revoke), cannot revoke accepted invites, listMine, horizontal pod authorization (non-creator pod member can invite), self-accept rejection.
 
 ---
 
@@ -313,20 +322,22 @@ Sub-tasks:
 ### [P2.3] Pod Management
 
 **Arch Ref:** § 4.2 (pods, pod_members, pod_preferences schema)
-**Depends On:** → P1.3 (auth), → P1.1 (schema)
+**Depends On:** → P1.3 (auth), → P1.1 (schema), → P2.1 (unified invites)
 **Effort:** 1.5 days
-**Deliverable:** Users can create pods, invite members, and configure pod-level scheduling preferences.
+**Deliverable:** Users can create pods, invite members via the unified `/api/invites` flow (see P2.1), and configure pod-level scheduling preferences.
+
+Note: Pod invites are NOT mounted on `/api/pods/:id/invite` anymore — they share the unified `/api/invites` surface with partner invites. Pods are horizontal, so any member can invite (no admin gate at invite time).
 
 Sub-tasks:
 
-- [P2.3.1] Implement `POST /api/pods` — create pod, add creator as admin member
-- [P2.3.2] Implement `POST /api/pods/:id/invite` — generate invite link scoped to pod
-- [P2.3.3] Implement `POST /api/pods/:id/join/:token` — accept pod invitation, verify person exists
+- [P2.3.1] Implement `POST /api/pods` — create pod, add creator as admin member (admin role remains for pod-settings edits, not for invites)
+- [P2.3.2] Pod invite minting handled by `POST /api/invites { kind: 'pod', podId }` — see P2.1.2
+- [P2.3.3] Pod invite accept handled by `POST /api/invites/:token/accept` — see P2.1.3
 - [P2.3.4] Implement `GET /api/pods` — list my pods with member counts and scheduling info
 - [P2.3.5] Implement `GET /api/pods/:id` — pod details with members (only accessible to pod members per § 4.3 RLS)
 - [P2.3.6] Implement `PATCH /api/pods/:id` — update pod name, scheduling cadence, planning horizon, review window, cycle day/time
 - [P2.3.7] Implement pod-access middleware per § 5.3
-- [P2.3.8] Write integration tests: pod creation, invitation, join, cross-pod access denial
+- [P2.3.8] Write integration tests: pod creation, invitation, join, cross-pod access denial (invite-specific tests live in `tests/invites.test.ts`)
 
 ---
 

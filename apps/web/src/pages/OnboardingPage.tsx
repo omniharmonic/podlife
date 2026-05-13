@@ -71,7 +71,10 @@ export function OnboardingPage() {
   async function generateInvite() {
     try {
       const res = await invite.mutateAsync({});
-      setInviteUrl(res.inviteUrl);
+      // The API no longer hands back a fully-formed URL — the frontend owns
+      // the routing convention now (/join/:token). Same path serves partner
+      // and pod invites; the landing page branches on preview kind.
+      setInviteUrl(`${window.location.origin}/join/${encodeURIComponent(res.token)}`);
     } catch (err) {
       showToast(
         err instanceof Error ? err.message : 'Could not create invite',

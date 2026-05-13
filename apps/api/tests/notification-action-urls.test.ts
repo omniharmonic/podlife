@@ -49,12 +49,12 @@ describe('notification action URLs — relative path + valid route', () => {
       const b = await authed(app, 'urlB');
 
       // Set up a partnership + availability so the cycle has something to propose.
-      const inv = await call(app, '/api/partners/invite', {
+      const inv = await call(app, '/api/invites', {
         method: 'POST',
         token: a.token,
-        json: {},
+        json: { kind: 'partner' },
       });
-      const acc = await call(app, `/api/partners/accept/${inv.body.token}`, {
+      const acc = await call(app, `/api/invites/${inv.body.token}/accept`, {
         method: 'POST',
         token: b.token,
       });
@@ -125,12 +125,12 @@ describe('notification action URLs — relative path + valid route', () => {
       const a = await authed(app, 'urlPA');
       const b = await authed(app, 'urlPB');
 
-      const inv = await call(app, '/api/partners/invite', {
+      const inv = await call(app, '/api/invites', {
         method: 'POST',
         token: a.token,
-        json: {},
+        json: { kind: 'partner' },
       });
-      await call(app, `/api/partners/accept/${inv.body.token}`, {
+      await call(app, `/api/invites/${inv.body.token}/accept`, {
         method: 'POST',
         token: b.token,
       });

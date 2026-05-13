@@ -112,10 +112,14 @@ Create account (email magic link)
   → Optional: connect Telegram
 
 First relationship:
-  → "Add a partner" → generates invite link
-  → Partner accepts → both set preferences for this relationship
-  → Optional: "Create a pod" → name it, invite members
+  → "Add a partner" → generates invite link (bearer token, shared via any channel)
+  → Partner clicks link → public preview shows who invited them
+  → Partner signs in (or creates an account with any email) → accepts → both set preferences
+  → Optional: "Create a pod" → name it, invite members (same unified invite flow,
+    `kind: 'pod'`; pods are horizontal so any member can later invite more people)
 ```
+
+**Invite flow design (locked in):** invitations are bearer-token links — no email gating. Anyone with the link can accept, including users who don't yet have an account (signup-on-accept piggy-backs on the standard login-code flow with `?next=/join/:token`). Partnership and pod membership are orthogonal: joining a pod does *not* implicitly partner you with the other pod members, supporting metamour relationships where members share a pod without all being romantically connected.
 
 ### 3.2 Preference Setting
 
@@ -484,15 +488,19 @@ Profile:
   PATCH  /me                        Update profile
   GET    /me/satisfaction            Global satisfaction summary
 
+Invites (unified — partner + pod):
+  POST   /invites                       Mint invite ({kind:'partner'|'pod', ...})
+  GET    /invites                       List invites I created (with status)
+  GET    /invites/:token/preview        Public — landing page lookup (no auth)
+  POST   /invites/:token/accept         Accept (dispatches by kind)
+  DELETE /invites/:token                Revoke (inviter only)
+
 Partners:
-  POST   /partners/invite           Generate invite link
-  POST   /partners/accept/:token    Accept partner invitation
   GET    /partners                  List my partners
   PATCH  /partners/:id/preferences  Update preferences for a partner
 
 Pods:
   POST   /pods                      Create a pod
-  POST   /pods/:id/invite           Invite someone to a pod
   GET    /pods/:id                  Pod details (members, schedule)
   PATCH  /pods/:id/preferences      Update pod-level preferences
   GET    /pods/:id/schedule         Current/proposed schedule for pod

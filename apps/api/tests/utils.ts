@@ -126,23 +126,23 @@ export async function createVStructure(): Promise<VStructure> {
   await db.update(persons).set({ displayName: cName }).where(eq(persons.id, cSession.personId));
 
   // Partnership A↔B
-  const abInvite = await call(app, '/api/partners/invite', {
+  const abInvite = await call(app, '/api/invites', {
     method: 'POST',
     token: aSession.sessionToken,
-    json: { displayHint: 'B' },
+    json: { kind: 'partner', displayHint: 'B' },
   });
-  const abAccept = await call(app, `/api/partners/accept/${abInvite.body.token}`, {
+  const abAccept = await call(app, `/api/invites/${abInvite.body.token}/accept`, {
     method: 'POST',
     token: bSession.sessionToken,
   });
 
   // Partnership A↔C
-  const acInvite = await call(app, '/api/partners/invite', {
+  const acInvite = await call(app, '/api/invites', {
     method: 'POST',
     token: aSession.sessionToken,
-    json: { displayHint: 'C' },
+    json: { kind: 'partner', displayHint: 'C' },
   });
-  const acAccept = await call(app, `/api/partners/accept/${acInvite.body.token}`, {
+  const acAccept = await call(app, `/api/invites/${acInvite.body.token}/accept`, {
     method: 'POST',
     token: cSession.sessionToken,
   });
@@ -153,12 +153,12 @@ export async function createVStructure(): Promise<VStructure> {
     token: aSession.sessionToken,
     json: { name: `Hearth-${Date.now()}` },
   });
-  const pod1Invite = await call(app, `/api/pods/${pod1.body.pod.id}/invite`, {
+  const pod1Invite = await call(app, '/api/invites', {
     method: 'POST',
     token: aSession.sessionToken,
-    json: { role: 'member' },
+    json: { kind: 'pod', podId: pod1.body.pod.id },
   });
-  await call(app, `/api/pods/join/${pod1Invite.body.token}`, {
+  await call(app, `/api/invites/${pod1Invite.body.token}/accept`, {
     method: 'POST',
     token: bSession.sessionToken,
   });
@@ -169,12 +169,12 @@ export async function createVStructure(): Promise<VStructure> {
     token: aSession.sessionToken,
     json: { name: `Garden-${Date.now()}` },
   });
-  const pod2Invite = await call(app, `/api/pods/${pod2.body.pod.id}/invite`, {
+  const pod2Invite = await call(app, '/api/invites', {
     method: 'POST',
     token: aSession.sessionToken,
-    json: { role: 'member' },
+    json: { kind: 'pod', podId: pod2.body.pod.id },
   });
-  await call(app, `/api/pods/join/${pod2Invite.body.token}`, {
+  await call(app, `/api/invites/${pod2Invite.body.token}/accept`, {
     method: 'POST',
     token: cSession.sessionToken,
   });

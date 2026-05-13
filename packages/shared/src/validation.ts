@@ -86,12 +86,29 @@ export const updatePersonSchema = z.object({
   onboardedAt: z.string().datetime().nullable().optional(),
 });
 
-// ─── Partner ───────────────────────────────────────────────────
+// ─── Invites (unified: partner + pod) ──────────────────────────
 
-export const inviteParterSchema = z.object({
-  displayHint: z.string().max(80).optional(),
-  relationshipType: z.enum(RELATIONSHIP_TYPE).default('partnership'),
-});
+/**
+ * Discriminated union for minting an invite. Same shape regardless of kind
+ * keeps the frontend simple: one POST /api/invites endpoint.
+ *
+ * Partner invite: `{ kind: 'partner', relationshipType?, displayHint? }`
+ * Pod invite:     `{ kind: 'pod', podId, displayHint? }`
+ */
+export const createInviteSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('partner'),
+    relationshipType: z.enum(RELATIONSHIP_TYPE).default('partnership'),
+    displayHint: z.string().min(1).max(80).optional(),
+  }),
+  z.object({
+    kind: z.literal('pod'),
+    podId: z.string().uuid(),
+    displayHint: z.string().min(1).max(80).optional(),
+  }),
+]);
+
+// ─── Partner ───────────────────────────────────────────────────
 
 export const updatePartnershipTypeSchema = z.object({
   relationshipType: z.enum(RELATIONSHIP_TYPE),
@@ -148,9 +165,7 @@ export const updatePodPreferencesSchema = z.object({
   subgroupConfigs: z.array(subgroupConfigSchema).optional(),
 });
 
-export const invitePodMemberSchema = z.object({
-  role: z.enum(POD_ROLE).default('member'),
-});
+// Pod invite minting moved to /api/invites — see createInviteSchema above.
 
 // ─── Schedule ──────────────────────────────────────────────────
 

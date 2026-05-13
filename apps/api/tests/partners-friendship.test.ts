@@ -36,14 +36,14 @@ describe('partners — friendship workflow', () => {
     const aTok = await authedSession(app);
     const bTok = await authedSession(app);
 
-    const inv = await call(app, '/api/partners/invite', {
+    const inv = await call(app, '/api/invites', {
       method: 'POST',
       token: aTok,
-      json: { relationshipType: 'friendship' },
+      json: { kind: 'partner', relationshipType: 'friendship' },
     });
     expect(inv.status).toBe(200);
 
-    const acc = await call(app, `/api/partners/accept/${inv.body.token}`, {
+    const acc = await call(app, `/api/invites/${inv.body.token}/accept`, {
       method: 'POST',
       token: bTok,
     });
@@ -64,12 +64,12 @@ describe('partners — friendship workflow', () => {
     const aTok = await authedSession(app);
     const bTok = await authedSession(app);
 
-    const inv = await call(app, '/api/partners/invite', {
+    const inv = await call(app, '/api/invites', {
       method: 'POST',
       token: aTok,
-      json: {},
+      json: { kind: 'partner' },
     });
-    await call(app, `/api/partners/accept/${inv.body.token}`, {
+    await call(app, `/api/invites/${inv.body.token}/accept`, {
       method: 'POST',
       token: bTok,
     });
@@ -83,12 +83,12 @@ describe('partners — friendship workflow', () => {
     const aTok = await authedSession(app);
     const bTok = await authedSession(app);
 
-    const inv = await call(app, '/api/partners/invite', {
+    const inv = await call(app, '/api/invites', {
       method: 'POST',
       token: aTok,
-      json: { relationshipType: 'partnership' },
+      json: { kind: 'partner', relationshipType: 'partnership' },
     });
-    const acc = await call(app, `/api/partners/accept/${inv.body.token}`, {
+    const acc = await call(app, `/api/invites/${inv.body.token}/accept`, {
       method: 'POST',
       token: bTok,
     });
@@ -121,10 +121,10 @@ describe('partners — friendship workflow', () => {
     const app = newApp();
     const aTok = await authedSession(app);
 
-    const r = await call(app, '/api/partners/invite', {
+    const r = await call(app, '/api/invites', {
       method: 'POST',
       token: aTok,
-      json: { relationshipType: 'situationship' },
+      json: { kind: 'partner', relationshipType: 'situationship' },
     });
     expect(r.status).toBe(400);
   });
@@ -135,12 +135,12 @@ describe('partners — friendship workflow', () => {
     const bTok = await authedSession(app);
     const cTok = await authedSession(app);
 
-    const inv = await call(app, '/api/partners/invite', {
+    const inv = await call(app, '/api/invites', {
       method: 'POST',
       token: aTok,
-      json: {},
+      json: { kind: 'partner' },
     });
-    const acc = await call(app, `/api/partners/accept/${inv.body.token}`, {
+    const acc = await call(app, `/api/invites/${inv.body.token}/accept`, {
       method: 'POST',
       token: bTok,
     });
@@ -160,12 +160,12 @@ describe('partners — friendship workflow', () => {
     const aTok = await authedSession(app);
     const bTok = await authedSession(app);
 
-    const inv = await call(app, '/api/partners/invite', {
+    const inv = await call(app, '/api/invites', {
       method: 'POST',
       token: aTok,
-      json: { relationshipType: 'friendship' },
+      json: { kind: 'partner', relationshipType: 'friendship' },
     });
-    const acc = await call(app, `/api/partners/accept/${inv.body.token}`, {
+    const acc = await call(app, `/api/invites/${inv.body.token}/accept`, {
       method: 'POST',
       token: bTok,
     });
@@ -197,22 +197,22 @@ describe('partners — friendship workflow', () => {
     const bTok = await authedSession(app);
     const cTok = await authedSession(app);
 
-    const invB = await call(app, '/api/partners/invite', {
+    const invB = await call(app, '/api/invites', {
       method: 'POST',
       token: aTok,
-      json: { relationshipType: 'friendship' },
+      json: { kind: 'partner', relationshipType: 'friendship' },
     });
-    await call(app, `/api/partners/accept/${invB.body.token}`, {
+    await call(app, `/api/invites/${invB.body.token}/accept`, {
       method: 'POST',
       token: bTok,
     });
 
-    const invC = await call(app, '/api/partners/invite', {
+    const invC = await call(app, '/api/invites', {
       method: 'POST',
       token: aTok,
-      json: { relationshipType: 'partnership' },
+      json: { kind: 'partner', relationshipType: 'partnership' },
     });
-    await call(app, `/api/partners/accept/${invC.body.token}`, {
+    await call(app, `/api/invites/${invC.body.token}/accept`, {
       method: 'POST',
       token: cTok,
     });
@@ -235,12 +235,12 @@ describe('partners — friendship workflow', () => {
     const aTok = await authedSession(app);
     const bTok = await authedSession(app);
 
-    const inv = await call(app, '/api/partners/invite', {
+    const inv = await call(app, '/api/invites', {
       method: 'POST',
       token: aTok,
-      json: { relationshipType: 'friendship' },
+      json: { kind: 'partner', relationshipType: 'friendship' },
     });
-    const acc = await call(app, `/api/partners/accept/${inv.body.token}`, {
+    const acc = await call(app, `/api/invites/${inv.body.token}/accept`, {
       method: 'POST',
       token: bTok,
     });

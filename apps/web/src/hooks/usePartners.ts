@@ -4,7 +4,7 @@ import type {
   RelationshipType,
   SchedulingCadence,
 } from '@pod-life/shared';
-import { partners } from '@/lib/api';
+import { invites, partners } from '@/lib/api';
 
 const KEYS = {
   list: ['partners'] as const,
@@ -47,8 +47,8 @@ export function useUpdatePartnerPreferences(partnershipId: string) {
 
 export function useInvitePartner() {
   return useMutation({
-    mutationFn: (input: { relationshipType?: RelationshipType } = {}) =>
-      partners.invite(input),
+    mutationFn: (input: { relationshipType?: RelationshipType; displayHint?: string } = {}) =>
+      invites.create({ kind: 'partner', ...input }),
   });
 }
 
@@ -86,10 +86,24 @@ export function useDeclineCadence(partnershipId: string) {
   });
 }
 
-export function useAcceptPartnerInvite() {
+/**
+ * Accept any invite (partner or pod). The hook is named after the legacy
+ * partner-only flow but now branches on the result's `kind` so callers can
+ * route to /partners or /pods/:id as appropriate.
+ */
+export function useAcceptInvite() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (token: string) => partners.accept(token),
-    onSuccess: () => qc.invalidateQueries({ queryKey: KEYS.list }),
+    mutationFn: (token: string) => invites.accept(token),
+    onSuccess: (data) => {
+      // Both partner and pod accepts can affect the partner list (a pod
+      // accept doesn't, but invalidating is cheap and avoids stale UI).
+      qc.invalidateQueries({ queryKey: KEYS.list });
+      // Pod accept: invalidate pods caches by clearing the entire query
+      // tree; the consumer page will refetch as needed.
+      if (data.kind === 'pod') {
+        qc.invalidateQueries({ queryKey: ['pods'] });
+      }
+    },
   });
 }

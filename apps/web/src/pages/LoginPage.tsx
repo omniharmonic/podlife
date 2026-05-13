@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { LOGIN_CODE_LENGTH, LOGIN_CODE_TTL_MINUTES } from '@pod-life/shared';
 import { Button } from '@/components/ui/Button';
@@ -45,7 +45,23 @@ export function LoginPage() {
   const [passkeyBusy, setPasskeyBusy] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const passkeySupported = isPasskeySupported();
+
+  /**
+   * Where to send the user after successful sign-in. Honors `?next=<path>`
+   * (used by the invite landing page) but only if it's a same-origin
+   * relative path — guards against open-redirect via `//evil.com` or
+   * `http://evil.com` values. New users go through /onboarding by default,
+   * but a `next=/join/...` invite link takes precedence so a cold invitee
+   * lands back on the invite page to accept rather than being detoured
+   * through onboarding.
+   */
+  function destinationAfterSignIn(onboardedAt: string | null): string {
+    const next = searchParams.get('next');
+    if (next && next.startsWith('/') && !next.startsWith('//')) return next;
+    return onboardedAt ? '/home' : '/onboarding';
+  }
 
   // Focus the code input the moment we transition to the awaiting step so
   // the iOS one-time-code suggestion bar can pop up immediately.
@@ -88,8 +104,9 @@ export function LoginPage() {
     try {
       const result = await auth.verify(target, cleaned);
       login(result.sessionToken, result.person);
-      const dest = result.person.onboardedAt ? '/home' : '/onboarding';
-      navigate(dest, { replace: true });
+      navigate(destinationAfterSignIn(result.person.onboardedAt ?? null), {
+        replace: true,
+      });
     } catch (err) {
       setStatus({
         kind: 'error',
@@ -117,8 +134,9 @@ export function LoginPage() {
       const result = await signInWithPasskey(trimmed);
       if (result.status === 'signed-in') {
         login(result.sessionToken, result.person);
-        const dest = result.person.onboardedAt ? '/home' : '/onboarding';
-        navigate(dest, { replace: true });
+        navigate(destinationAfterSignIn(result.person.onboardedAt ?? null), {
+          replace: true,
+        });
         return;
       }
       if (result.status === 'error') {

@@ -5,7 +5,7 @@
  * Privacy invariant (CLAUDE.md § Privacy Model):
  *   A person only sees partnerships involving themselves.
  */
-import { and, eq, gt, inArray, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, or, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import {
   PARTNER_COLORS,
@@ -18,7 +18,7 @@ import {
 import { db } from '../../db/index.js';
 import {
   auditLog,
-  partnerInvites,
+  invites,
   partnershipPreferences,
   partnerships,
   persons,
@@ -31,7 +31,6 @@ import {
   NotFoundError,
   ValidationError,
 } from '../../lib/errors.js';
-import { config } from '../../lib/config.js';
 import { send as notify } from '../../services/notification/notification.service.js';
 import { logger } from '../../lib/logger.js';
 
@@ -40,37 +39,50 @@ export function canonicalPair(a: string, b: string): { aId: string; bId: string 
   return a < b ? { aId: a, bId: b } : { aId: b, bId: a };
 }
 
-export async function createInvite(
+/**
+ * Mint a partner invite. Caller is the inviter; anyone with the resulting
+ * token can later accept (the token is the bearer credential). Invite rows
+ * live in the unified `invites` table and are revocable by the inviter.
+ */
+export async function createPartnerInvite(
   inviterId: string,
   displayHint?: string,
   relationshipType: RelationshipType = 'partnership',
-): Promise<{ inviteUrl: string; token: string; expiresAt: Date }> {
+): Promise<{ token: string; expiresAt: Date }> {
   const token = nanoid(32);
   const expiresAt = new Date(Date.now() + PARTNER_INVITE_TTL_DAYS * 24 * 60 * 60 * 1000);
-  await db.insert(partnerInvites).values({
+  await db.insert(invites).values({
+    kind: 'partner',
     invitedBy: inviterId,
     token,
-    displayHint: displayHint ?? null,
+    inviteeDisplayHint: displayHint ?? null,
     relationshipType,
     expiresAt,
   });
-  // Must match the React Router route in apps/web/src/App.tsx (/invite/:token).
-  const inviteUrl = `${config.frontendUrl}/invite/${token}`;
-  return { inviteUrl, token, expiresAt };
+  return { token, expiresAt };
 }
 
-export async function acceptInvite(
+export type InviteRow = typeof invites.$inferSelect;
+
+/**
+ * Apply a pre-validated partner invite: create the partnership, default
+ * preferences, audit log on both sides, and notify the inviter. The caller
+ * (invites.service) is responsible for token lookup, expiry/revocation
+ * checks, self-accept rejection, and finally marking the invite accepted.
+ *
+ * Split from the old `acceptInvite` so the unified invites module can
+ * orchestrate without duplicating partnership-creation logic here.
+ */
+export async function materializePartnershipFromInvite(
+  invite: InviteRow,
   acceptingPersonId: string,
-  token: string,
 ): Promise<{ partnershipId: string }> {
-  const found = await db
-    .select()
-    .from(partnerInvites)
-    .where(and(eq(partnerInvites.token, token), gt(partnerInvites.expiresAt, new Date())))
-    .limit(1);
-  const invite = found[0];
-  if (!invite) throw new NotFoundError('Invite not found or expired');
-  if (invite.acceptedAt) throw new ConflictError('Invite already accepted');
+  if (invite.kind !== 'partner') {
+    throw new ValidationError('Invite is not a partner invite');
+  }
+  if (!invite.relationshipType) {
+    throw new ValidationError('Partner invite missing relationship type');
+  }
   if (invite.invitedBy === acceptingPersonId) {
     throw new ValidationError('Cannot accept your own invite');
   }
@@ -112,9 +124,9 @@ export async function acceptInvite(
   ]);
 
   await db
-    .update(partnerInvites)
+    .update(invites)
     .set({ acceptedAt: new Date(), acceptedBy: acceptingPersonId })
-    .where(eq(partnerInvites.id, invite.id));
+    .where(eq(invites.id, invite.id));
 
   // Audit both sides of the new partnership (P9.4).
   await db.insert(auditLog).values([
