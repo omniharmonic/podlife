@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Pod, PodPreference } from '@pod-life/shared';
-import { pods } from '@/lib/api';
+import { invites, pods } from '@/lib/api';
 
 const KEYS = {
   list: ['pods'] as const,
@@ -62,5 +62,18 @@ export function useUpdatePod(podId: string) {
       qc.invalidateQueries({ queryKey: KEYS.detail(podId) });
       qc.invalidateQueries({ queryKey: KEYS.list });
     },
+  });
+}
+
+/**
+ * Mint a pod invite link. Pods are horizontal so any current pod member can
+ * call this — the API checks membership. Returns the raw token; the caller
+ * builds the shareable URL via `${origin}/join/${token}` since the API no
+ * longer owns the frontend routing convention.
+ */
+export function useCreatePodInvite(podId: string) {
+  return useMutation({
+    mutationFn: (input: { displayHint?: string } = {}) =>
+      invites.create({ kind: 'pod', podId, ...input }),
   });
 }

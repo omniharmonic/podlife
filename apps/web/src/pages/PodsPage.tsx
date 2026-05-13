@@ -24,7 +24,8 @@ export function PodsPage() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [emoji, setEmoji] = useState('🏠');
-  const [memberEmails, setMemberEmails] = useState('');
+  // Pod members are added via shareable invite links from the pod detail
+  // page (P2.1 unified invite flow) — not by typing emails at create time.
 
   const pods = list.data ?? [];
 
@@ -38,19 +39,12 @@ export function PodsPage() {
     e.preventDefault();
     if (!name.trim()) return;
     try {
-      await create.mutateAsync({
-        name: name.trim(),
-        emoji,
-        memberEmails: memberEmails
-          .split(/[,\n]/)
-          .map((s) => s.trim())
-          .filter(Boolean),
-      });
+      const pod = await create.mutateAsync({ name: name.trim(), emoji });
       showToast(`Pod "${name.trim()}" created`, 'success');
       setOpen(false);
       setName('');
       setEmoji('🏠');
-      setMemberEmails('');
+      void pod;
     } catch (err) {
       showToast(
         err instanceof Error ? err.message : 'Could not create pod',
@@ -152,13 +146,10 @@ export function PodsPage() {
             required
           />
           <EmojiPicker value={emoji} onChange={setEmoji} label="Emoji" />
-          <Input
-            label="Invite members (optional)"
-            placeholder="email@example.com, another@example.com"
-            value={memberEmails}
-            onChange={(e) => setMemberEmails(e.currentTarget.value)}
-            hint="Separate emails with commas. They'll receive an invitation."
-          />
+          <p className="text-xs text-ink-500 italic leading-relaxed">
+            You can invite members from the pod page after it's created —
+            shareable links work for anyone, even people without accounts yet.
+          </p>
         </form>
       </Modal>
     </motion.div>

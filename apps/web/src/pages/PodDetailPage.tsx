@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { parseISO, isSameDay, formatDistanceToNow } from 'date-fns';
 import type { SchedulingCadence } from '@pod-life/shared';
-import { usePod, useUpdatePod, usePodsList } from '@/hooks/usePods';
+import { useCreatePodInvite, usePod, useUpdatePod, usePodsList } from '@/hooks/usePods';
 import { useProposals } from '@/hooks/useSchedule';
 import {
   usePodHealth,
@@ -14,6 +14,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { Modal } from '@/components/ui/Modal';
 import { Select } from '@/components/ui/Select';
 import { SatisfactionRing } from '@/components/ui/SatisfactionRing';
 import { EmojiPicker } from '@/components/ui/EmojiPicker';
@@ -58,6 +59,49 @@ export function PodDetailPage() {
   const [chatDraft, setChatDraft] = useState('');
   const [editingCycle, setEditingCycle] = useState(false);
   const [editingIdentity, setEditingIdentity] = useState(false);
+
+  // Pod invite modal state. We hold the freshly-minted token's full URL in
+  // local state so we can show + copy it without keeping the API response in
+  // a query cache (the inviter can mint multiple links in one session).
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteHint, setInviteHint] = useState('');
+  const [inviteData, setInviteData] = useState<
+    { inviteUrl: string; token: string; expiresAt: string } | null
+  >(null);
+  const createInvite = useCreatePodInvite(id);
+
+  function openInvite() {
+    setInviteHint('');
+    setInviteData(null);
+    setInviteOpen(true);
+  }
+
+  async function generatePodInvite() {
+    try {
+      const trimmed = inviteHint.trim();
+      const res = await createInvite.mutateAsync(
+        trimmed ? { displayHint: trimmed } : {},
+      );
+      setInviteData({
+        token: res.token,
+        expiresAt: res.expiresAt,
+        inviteUrl: `${window.location.origin}/join/${encodeURIComponent(res.token)}`,
+      });
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : 'Could not create invite',
+        'error',
+      );
+    }
+  }
+
+  function copyPodInviteLink() {
+    if (!inviteData) return;
+    navigator.clipboard
+      .writeText(inviteData.inviteUrl)
+      .then(() => showToast('Invite link copied', 'success'))
+      .catch(() => showToast('Could not copy — try selecting manually', 'error'));
+  }
 
   async function handleSendChat(e: React.FormEvent) {
     e.preventDefault();
@@ -183,6 +227,17 @@ export function PodDetailPage() {
                 </div>
               );
             })}
+            {/* Pods are horizontal — any current member can invite. The pill
+                shape mirrors a member chip so it reads as "the next person". */}
+            <button
+              type="button"
+              onClick={openInvite}
+              className="flex items-center gap-1.5 border border-dashed border-ink-200 hover:border-terracotta-500 hover:bg-terracotta-50/50 text-ink-500 hover:text-terracotta-700 rounded-full pl-2.5 pr-3 py-1 text-[13px] transition-colors"
+              aria-label="Invite someone to this pod"
+            >
+              <span aria-hidden="true" className="text-lg leading-none">+</span>
+              <span>Invite</span>
+            </button>
           </div>
         </header>
       )}
@@ -470,6 +525,71 @@ export function PodDetailPage() {
           </div>
         </form>
       </section>
+
+      <Modal
+        open={inviteOpen}
+        onClose={() => setInviteOpen(false)}
+        title={pod.data ? `Invite to ${pod.data.name}` : 'Invite to pod'}
+        footer={
+          inviteData ? (
+            <>
+              <Button variant="ghost" onClick={() => setInviteOpen(false)}>
+                Done
+              </Button>
+              <Button onClick={copyPodInviteLink}>Copy link</Button>
+            </>
+          ) : (
+            <>
+              <Button variant="ghost" onClick={() => setInviteOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={generatePodInvite}
+                loading={createInvite.isPending}
+              >
+                Generate invite link
+              </Button>
+            </>
+          )
+        }
+      >
+        {!inviteData ? (
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-ink-600 leading-relaxed">
+              Pods are horizontal — anyone you invite joins as an equal
+              member. They'll be able to invite others too.
+            </p>
+            <Input
+              label="Who is this for? (optional)"
+              placeholder='e.g., "Sam"'
+              value={inviteHint}
+              onChange={(e) => setInviteHint(e.currentTarget.value)}
+              hint="Only you'll see this — it helps you keep track of outstanding invites."
+              maxLength={80}
+            />
+            <p className="text-xs text-ink-500 italic">
+              The recipient doesn't need an account yet — they can sign up
+              when they open the link.
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-ink-600 italic leading-relaxed">
+              Share this link privately. It expires on{' '}
+              <span className="font-mono not-italic text-ink-800">
+                {new Date(inviteData.expiresAt).toLocaleDateString()}
+              </span>
+              .
+            </p>
+            <div className="bg-ink-50 border border-dashed border-ink-200 rounded-md px-3 py-3 text-sm break-all font-mono text-ink-700">
+              {inviteData.inviteUrl}
+            </div>
+            <p className="text-xs text-ink-500 italic">
+              Anyone with this link can join this pod. Don't post it publicly.
+            </p>
+          </div>
+        )}
+      </Modal>
     </motion.div>
   );
 }
