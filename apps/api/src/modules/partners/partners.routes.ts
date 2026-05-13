@@ -2,15 +2,19 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import {
   inviteParterSchema,
+  proposePartnershipCadenceSchema,
   updatePartnershipPreferencesSchema,
   updatePartnershipStatusSchema,
   updatePartnershipTypeSchema,
 } from '@pod-life/shared';
 import {
+  acceptCadenceProposal,
   acceptInvite,
   createInvite,
+  declineCadenceProposal,
   getMyPreferences,
   listPartners,
+  proposeCadence,
   updateMyPreferences,
   updatePartnershipStatus,
   updateRelationshipType,
@@ -80,3 +84,32 @@ partnersRoutes.patch(
     return c.json(result);
   },
 );
+
+// Cadence: three discrete verbs (propose / accept / decline) instead of a
+// single PATCH so the UI can wire each action to its own button with clear
+// semantics. See partners.service.ts for the state-machine rules.
+partnersRoutes.post(
+  '/:id/cadence/propose',
+  zValidator('json', proposePartnershipCadenceSchema),
+  async (c) => {
+    const me = c.get('person');
+    const id = c.req.param('id');
+    const { cadence } = c.req.valid('json');
+    const result = await proposeCadence(me.id, id, cadence);
+    return c.json(result);
+  },
+);
+
+partnersRoutes.post('/:id/cadence/accept', async (c) => {
+  const me = c.get('person');
+  const id = c.req.param('id');
+  const result = await acceptCadenceProposal(me.id, id);
+  return c.json(result);
+});
+
+partnersRoutes.post('/:id/cadence/decline', async (c) => {
+  const me = c.get('person');
+  const id = c.req.param('id');
+  const result = await declineCadenceProposal(me.id, id);
+  return c.json(result);
+});

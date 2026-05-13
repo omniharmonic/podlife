@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
-import type { RelationshipType } from '@pod-life/shared';
+import type { RelationshipType, SchedulingCadence } from '@pod-life/shared';
 import {
+  useAcceptCadence,
+  useDeclineCadence,
   usePartnerPreferences,
+  useProposeCadence,
   useUpdatePartnerPreferences,
 } from '@/hooks/usePartners';
 import { Button } from '@/components/ui/Button';
@@ -16,6 +19,17 @@ interface Props {
   partnerName: string;
   /** When 'friendship', overnight + date-night fields are hidden. */
   relationshipType?: RelationshipType;
+  /** Agreed cadence for this partnership. */
+  cadence?: SchedulingCadence;
+  /** Pending cadence proposal (null when none). */
+  pendingCadence?: SchedulingCadence | null;
+  /**
+   * Whether the pending proposal was made by the current viewer.
+   *  - null when there is no pending proposal
+   *  - true when the viewer proposed (show "waiting on partnerName")
+   *  - false when the other party proposed (show accept/decline banner)
+   */
+  pendingProposedByMe?: boolean | null;
 }
 
 interface FormState {
@@ -46,12 +60,49 @@ export function PartnerPreferencesEditor({
   partnershipId,
   partnerName,
   relationshipType = 'partnership',
+  cadence = 'weekly',
+  pendingCadence = null,
+  pendingProposedByMe = null,
 }: Props) {
   const prefs = usePartnerPreferences(partnershipId);
   const update = useUpdatePartnerPreferences(partnershipId);
+  const proposeCadenceMut = useProposeCadence(partnershipId);
+  const acceptCadenceMut = useAcceptCadence(partnershipId);
+  const declineCadenceMut = useDeclineCadence(partnershipId);
   const showToast = useUiStore((s) => s.showToast);
   const [form, setForm] = useState<FormState>(ZERO);
   const isFriendship = relationshipType === 'friendship';
+
+  async function onProposeCadence(next: SchedulingCadence) {
+    if (next === cadence && pendingCadence === null) return; // no-op
+    try {
+      const res = await proposeCadenceMut.mutateAsync(next);
+      if (next === cadence) {
+        showToast('Proposal withdrawn', 'success');
+      } else {
+        showToast(`Proposed ${next} · waiting for ${partnerName}`, 'success');
+      }
+      void res;
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not propose', 'error');
+    }
+  }
+  async function onAcceptCadence() {
+    try {
+      await acceptCadenceMut.mutateAsync();
+      showToast('Cadence accepted', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not accept', 'error');
+    }
+  }
+  async function onDeclineCadence() {
+    try {
+      await declineCadenceMut.mutateAsync();
+      showToast('Proposal declined', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not decline', 'error');
+    }
+  }
 
   useEffect(() => {
     if (prefs.data) {
@@ -104,16 +155,30 @@ export function PartnerPreferencesEditor({
 
   return (
     <div className="flex flex-col gap-8">
-      {/* Cycle prose */}
+      {/* Cycle prose + cadence picker */}
       <section className="text-sm text-ink-600 leading-relaxed">
         <p className="font-display italic text-xl text-ink-800 mb-2"
            style={{ fontVariationSettings: "'opsz' 36, 'SOFT' 50, 'wght' 460" }}>
           What is a cycle?
         </p>
-        <p>
-          A cycle is one round of planning — usually a week, but each pod
-          chooses its own rhythm. The numbers below are <em>per cycle</em>.
+        <p className="mb-5">
+          A cycle is one round of planning. You and {partnerName} agree on
+          how often this relationship's schedule resets. The numbers below
+          are <em>per cycle</em>.
         </p>
+
+        <CadencePicker
+          current={cadence}
+          pending={pendingCadence}
+          pendingByMe={pendingProposedByMe}
+          partnerName={partnerName}
+          onPropose={onProposeCadence}
+          onAccept={onAcceptCadence}
+          onDecline={onDeclineCadence}
+          proposing={proposeCadenceMut.isPending}
+          accepting={acceptCadenceMut.isPending}
+          declining={declineCadenceMut.isPending}
+        />
       </section>
 
       {/* AI: opt-in natural-language editor (renders nothing if AI off) */}
@@ -271,6 +336,120 @@ export function PartnerPreferencesEditor({
           Save preferences
         </Button>
       </div>
+    </div>
+  );
+}
+
+const CADENCE_OPTIONS: Array<{ value: SchedulingCadence; label: string; hint: string }> = [
+  { value: 'weekly', label: 'Weekly', hint: 'Plan every 7 days' },
+  { value: 'biweekly', label: 'Biweekly', hint: 'Plan every 2 weeks' },
+  { value: 'monthly', label: 'Monthly', hint: 'Plan every 4 weeks' },
+];
+
+interface CadencePickerProps {
+  current: SchedulingCadence;
+  pending: SchedulingCadence | null;
+  pendingByMe: boolean | null;
+  partnerName: string;
+  onPropose: (next: SchedulingCadence) => void;
+  onAccept: () => void;
+  onDecline: () => void;
+  proposing: boolean;
+  accepting: boolean;
+  declining: boolean;
+}
+
+/**
+ * Inline cadence selector with two-party confirmation.
+ *
+ * Three visual states:
+ *   1. No pending proposal → click a different option to propose it.
+ *   2. Pending, proposed by viewer → muted "waiting" line + a way to withdraw.
+ *   3. Pending, proposed by the other party → accept / decline banner.
+ *
+ * Clicking the *current* cadence while a viewer-proposed change is pending
+ * is interpreted as a withdrawal (server treats propose-current as no-op
+ * that clears any pending row).
+ */
+function CadencePicker({
+  current,
+  pending,
+  pendingByMe,
+  partnerName,
+  onPropose,
+  onAccept,
+  onDecline,
+  proposing,
+  accepting,
+  declining,
+}: CadencePickerProps) {
+  const busy = proposing || accepting || declining;
+  const showOtherBanner = pending !== null && pendingByMe === false;
+  const showMineBanner = pending !== null && pendingByMe === true;
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="grid grid-cols-3 gap-2">
+        {CADENCE_OPTIONS.map((opt) => {
+          const isCurrent = opt.value === current;
+          const isPending = opt.value === pending;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              disabled={busy}
+              onClick={() => onPropose(opt.value)}
+              className={`text-left rounded-xl border px-3 py-2.5 transition-all ${
+                isCurrent
+                  ? 'border-terracotta-500 bg-terracotta-50/60'
+                  : isPending
+                    ? 'border-ink-300 border-dashed bg-cream'
+                    : 'border-ink-100 bg-cream hover:bg-ink-50'
+              } ${busy ? 'opacity-60 cursor-wait' : ''}`}
+            >
+              <p className="font-display text-ink-800 text-base leading-tight">
+                {opt.label}
+                {isCurrent && (
+                  <span className="ml-1 text-[10px] uppercase tracking-[0.14em] text-terracotta-600 font-medium">
+                    · agreed
+                  </span>
+                )}
+                {isPending && !isCurrent && (
+                  <span className="ml-1 text-[10px] uppercase tracking-[0.14em] text-ink-500 font-medium">
+                    · pending
+                  </span>
+                )}
+              </p>
+              <p className="text-[11px] text-ink-500 mt-0.5">{opt.hint}</p>
+            </button>
+          );
+        })}
+      </div>
+
+      {showOtherBanner && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-sage-200 bg-sage-50/60 px-4 py-3">
+          <p className="text-sm text-ink-700 leading-snug">
+            <span className="font-display not-italic text-ink-900">{partnerName}</span>{' '}
+            proposed <strong className="font-display not-italic">{pending}</strong> cycles.
+            Accept to lock it in.
+          </p>
+          <div className="flex gap-2 shrink-0">
+            <Button size="sm" variant="ghost" onClick={onDecline} disabled={busy}>
+              Decline
+            </Button>
+            <Button size="sm" onClick={onAccept} disabled={busy}>
+              Accept
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {showMineBanner && (
+        <p className="text-xs text-ink-500 italic">
+          You proposed <strong className="font-display not-italic text-ink-700">{pending}</strong>.
+          Waiting for {partnerName} to accept. Click the current cadence to withdraw.
+        </p>
+      )}
     </div>
   );
 }

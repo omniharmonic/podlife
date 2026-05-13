@@ -140,6 +140,13 @@ export function PartnerDetailPage() {
               partnershipId={id}
               partnerName={partner.partner.displayName}
               relationshipType={partner.relationshipType}
+              cadence={partner.cadence}
+              pendingCadence={partner.pendingCadence}
+              pendingProposedByMe={
+                partner.pendingCadenceBy == null
+                  ? null
+                  : partner.pendingCadenceBy === person?.id
+              }
             />
           ) : (
             <p className="text-ink-500 text-sm">Loading…</p>

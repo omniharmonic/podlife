@@ -13,8 +13,10 @@ import {
 import { Avatar } from '@/components/ui/Avatar';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { SatisfactionRing } from '@/components/ui/SatisfactionRing';
+import { EmojiPicker } from '@/components/ui/EmojiPicker';
 import { useUiStore } from '@/stores/ui.store';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -55,6 +57,7 @@ export function PodDetailPage() {
 
   const [chatDraft, setChatDraft] = useState('');
   const [editingCycle, setEditingCycle] = useState(false);
+  const [editingIdentity, setEditingIdentity] = useState(false);
 
   async function handleSendChat(e: React.FormEvent) {
     e.preventDefault();
@@ -113,21 +116,51 @@ export function PodDetailPage() {
       {pod.data && (
         <header className="flex flex-col gap-5">
           <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-4 min-w-0">
-              <span
-                className="text-4xl shrink-0"
-                aria-hidden="true"
-                style={{ filter: 'saturate(0.9)' }}
-              >
-                {pod.data.emoji ?? '🏠'}
-              </span>
-              <div className="min-w-0">
-                <p className="eyebrow mb-1.5">Pod</p>
-                <h1 className="font-display text-ink-800 text-[2.4rem] sm:text-[3rem] leading-[1.04] tracking-[-0.005em]">
-                  {pod.data.name}
-                </h1>
-              </div>
-            </div>
+            {!editingIdentity ? (
+              <>
+                <div className="flex items-center gap-4 min-w-0">
+                  <span
+                    className="text-4xl shrink-0"
+                    aria-hidden="true"
+                    style={{ filter: 'saturate(0.9)' }}
+                  >
+                    {pod.data.emoji ?? '🏠'}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="eyebrow mb-1.5">Pod</p>
+                    <h1 className="font-display text-ink-800 text-[2.4rem] sm:text-[3rem] leading-[1.04] tracking-[-0.005em]">
+                      {pod.data.name}
+                    </h1>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setEditingIdentity(true)}
+                >
+                  Edit
+                </Button>
+              </>
+            ) : (
+              <IdentityEditor
+                initialName={pod.data.name}
+                initialEmoji={pod.data.emoji ?? '🏠'}
+                saving={updatePod.isPending}
+                onCancel={() => setEditingIdentity(false)}
+                onSave={async (patch) => {
+                  try {
+                    await updatePod.mutateAsync(patch);
+                    showToast('Pod updated', 'success');
+                    setEditingIdentity(false);
+                  } catch (err) {
+                    showToast(
+                      err instanceof Error ? err.message : 'Could not update',
+                      'error',
+                    );
+                  }
+                }}
+              />
+            )}
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
@@ -454,6 +487,65 @@ function cadenceLabel(c: SchedulingCadence): string {
 
 function dayName(n: number): string {
   return DAY_OPTIONS[n]?.label ?? '—';
+}
+
+interface IdentityEditorProps {
+  initialName: string;
+  initialEmoji: string;
+  saving: boolean;
+  onCancel: () => void;
+  onSave: (patch: { name: string; emoji: string }) => Promise<void> | void;
+}
+
+/**
+ * Inline editor for pod emoji + name. Mirrors the cadence/cycle editor
+ * pattern below — local state, explicit Save/Cancel, no auto-submit.
+ * Empty name is treated as a "don't allow" rather than a server error.
+ */
+function IdentityEditor({
+  initialName,
+  initialEmoji,
+  saving,
+  onCancel,
+  onSave,
+}: IdentityEditorProps) {
+  const [name, setName] = useState(initialName);
+  const [emoji, setEmoji] = useState(initialEmoji);
+  const trimmed = name.trim();
+  const hasChanges = trimmed !== initialName || emoji !== initialEmoji;
+  const canSave = trimmed.length > 0 && hasChanges;
+
+  return (
+    <div className="flex-1 flex flex-col gap-3">
+      <p className="eyebrow">Pod</p>
+      <div className="flex items-start gap-3">
+        <EmojiPicker value={emoji} onChange={setEmoji} />
+        <div className="flex-1 min-w-0">
+          <Input
+            label="Name"
+            value={name}
+            onChange={(e) => setName(e.currentTarget.value)}
+            placeholder="e.g., Home Base"
+            maxLength={80}
+            required
+          />
+        </div>
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button size="sm" variant="ghost" onClick={onCancel} disabled={saving}>
+          Cancel
+        </Button>
+        <Button
+          size="sm"
+          loading={saving}
+          disabled={!canSave}
+          onClick={() => onSave({ name: trimmed, emoji })}
+        >
+          Save
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 interface CycleEditorProps {

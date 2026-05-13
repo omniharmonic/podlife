@@ -249,6 +249,19 @@ export const partnerships = pgTable(
      * machinery — to the optimizer, both are just two-person pairings.
      */
     relationshipType: text('relationship_type').notNull().default('partnership'),
+    /**
+     * Agreed cadence for this partnership's own scheduling cycle. Changes
+     * require two-party confirmation: a proposal lands in pendingCadence /
+     * pendingCadenceBy, and the *other* party accepts to commit.
+     *
+     * Distinct from partnership_preferences.cadence (per-person opinion;
+     * effectively unused). This column is the single source of truth.
+     */
+    cadence: text('cadence').notNull().default('weekly'),
+    pendingCadence: text('pending_cadence'),
+    pendingCadenceBy: uuid('pending_cadence_by').references(() => persons.id, {
+      onDelete: 'set null',
+    }),
     invitedBy: uuid('invited_by')
       .notNull()
       .references(() => persons.id),
@@ -263,6 +276,18 @@ export const partnerships = pgTable(
     check(
       'partnerships_relationship_type_check',
       sql`${t.relationshipType} IN ('partnership', 'friendship')`,
+    ),
+    check(
+      'partnerships_cadence_check',
+      sql`${t.cadence} IN ('weekly', 'biweekly', 'monthly')`,
+    ),
+    check(
+      'partnerships_pending_cadence_check',
+      sql`${t.pendingCadence} IS NULL OR ${t.pendingCadence} IN ('weekly', 'biweekly', 'monthly')`,
+    ),
+    check(
+      'partnerships_pending_cadence_together',
+      sql`(${t.pendingCadence} IS NULL AND ${t.pendingCadenceBy} IS NULL) OR (${t.pendingCadence} IS NOT NULL AND ${t.pendingCadenceBy} IS NOT NULL)`,
     ),
     unique('uq_partnerships_pair').on(t.personAId, t.personBId),
     index('idx_partnerships_persons').on(t.personAId, t.personBId),

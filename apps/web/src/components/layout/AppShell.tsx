@@ -30,7 +30,7 @@ export function AppShell({ children }: AppShellProps) {
   const nav = [
     { to: '/home', label: 'Home', icon: HomeIcon, end: true },
     { to: '/calendar', label: 'Calendar', icon: CalendarIcon },
-    { to: '/partners', label: 'Partners', icon: HeartIcon },
+    { to: '/partners', label: 'People', icon: HeartIcon },
     { to: podHref, label: onlyPod ? 'Pod' : 'Pods', icon: PodIcon },
     { to: '/settings', label: 'Settings', icon: GearIcon },
   ];
