@@ -278,7 +278,11 @@ export interface PartnerSummary {
   color: string;
   status: PartnershipStatus;
   relationshipType: RelationshipType;
-  /** Agreed scheduling cadence for this partnership. */
+  /**
+   * Agreed scheduling cadence for this partnership. Only meaningful when
+   * `sharedPods` is empty — when both partners are in the same pod, that
+   * pod's cadence governs and the per-partnership cadence is moot.
+   */
   cadence: SchedulingCadence;
   /**
    * If non-null, a cadence change is awaiting the *other* party's accept.
@@ -287,4 +291,11 @@ export interface PartnerSummary {
    */
   pendingCadence: SchedulingCadence | null;
   pendingCadenceBy: string | null;
+  /**
+   * Pods both partners belong to. When non-empty, the partnership cadence
+   * is hidden in the UI and the propose/accept/decline endpoints return
+   * 400 PARTNERSHIP_HAS_SHARED_POD — pod cadence is the source of truth
+   * for shared scheduling.
+   */
+  sharedPods: Array<{ id: string; name: string }>;
 }

@@ -30,6 +30,11 @@ interface Props {
    *  - false when the other party proposed (show accept/decline banner)
    */
   pendingProposedByMe?: boolean | null;
+  /**
+   * Pods both partners belong to. When non-empty the cadence picker is
+   * hidden — pod cadence is authoritative for shared scheduling.
+   */
+  sharedPods?: Array<{ id: string; name: string }>;
 }
 
 interface FormState {
@@ -63,7 +68,9 @@ export function PartnerPreferencesEditor({
   cadence = 'weekly',
   pendingCadence = null,
   pendingProposedByMe = null,
+  sharedPods = [],
 }: Props) {
+  const podGovernsCadence = sharedPods.length > 0;
   const prefs = usePartnerPreferences(partnershipId);
   const update = useUpdatePartnerPreferences(partnershipId);
   const proposeCadenceMut = useProposeCadence(partnershipId);
@@ -167,18 +174,34 @@ export function PartnerPreferencesEditor({
           are <em>per cycle</em>.
         </p>
 
-        <CadencePicker
-          current={cadence}
-          pending={pendingCadence}
-          pendingByMe={pendingProposedByMe}
-          partnerName={partnerName}
-          onPropose={onProposeCadence}
-          onAccept={onAcceptCadence}
-          onDecline={onDeclineCadence}
-          proposing={proposeCadenceMut.isPending}
-          accepting={acceptCadenceMut.isPending}
-          declining={declineCadenceMut.isPending}
-        />
+        {podGovernsCadence ? (
+          <div className="rounded-xl border border-ink-100 bg-parchment/60 px-4 py-3">
+            <p className="text-sm text-ink-700 leading-snug">
+              Cadence is set by your shared pod
+              {sharedPods.length === 1 ? ' ' : 's '}
+              {sharedPods.map((p, i) => (
+                <span key={p.id}>
+                  <strong className="font-display not-italic text-ink-900">{p.name}</strong>
+                  {i < sharedPods.length - 1 ? ', ' : ''}
+                </span>
+              ))}
+              . Edit the pod's check-in rhythm to change it.
+            </p>
+          </div>
+        ) : (
+          <CadencePicker
+            current={cadence}
+            pending={pendingCadence}
+            pendingByMe={pendingProposedByMe}
+            partnerName={partnerName}
+            onPropose={onProposeCadence}
+            onAccept={onAcceptCadence}
+            onDecline={onDeclineCadence}
+            proposing={proposeCadenceMut.isPending}
+            accepting={acceptCadenceMut.isPending}
+            declining={declineCadenceMut.isPending}
+          />
+        )}
       </section>
 
       {/* AI: opt-in natural-language editor (renders nothing if AI off) */}

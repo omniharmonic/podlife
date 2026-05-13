@@ -140,6 +140,7 @@ export function PartnerCard({
                     ? null
                     : partner.pendingCadenceBy === person?.id
                 }
+                sharedPods={partner.sharedPods}
               />
             </div>
           </motion.section>

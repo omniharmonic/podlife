@@ -147,6 +147,7 @@ export function PartnerDetailPage() {
                   ? null
                   : partner.pendingCadenceBy === person?.id
               }
+              sharedPods={partner.sharedPods}
             />
           ) : (
             <p className="text-ink-500 text-sm">Loading…</p>
