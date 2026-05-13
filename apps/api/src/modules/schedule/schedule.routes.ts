@@ -232,17 +232,24 @@ scheduleRoutes.post(
       }
     }
 
-    // If all participants accepted, mark block accepted AND drop the HOLD
-    // prefix from each participant's calendar event inline (the cron sweep
-    // also handles this as a safety net for failed inline calls).
+    // If all participants accepted, transition through `accepted` while we
+    // attempt to drop the HOLD prefix from each participant's calendar event.
+    // Only advance to `locked` when every PATCH succeeds — failures leave the
+    // block in `accepted` so the auto-lock cron can retry on the next sweep.
+    // (Going straight to `locked` here would orphan failed confirms: the cron
+    // sweeps `accepted`, not `locked`.)
+    let allCalendarOk = true;
     if (response === 'accepted' && block) {
       const all = await db
         .select()
         .from(timeBlockParticipants)
         .where(eq(timeBlockParticipants.timeBlockId, id));
       if (all.every((p) => p.response === 'accepted')) {
-        await db.update(timeBlocks).set({ status: 'locked' }).where(eq(timeBlocks.id, id));
-        await confirmEventsForBlock(block);
+        await db.update(timeBlocks).set({ status: 'accepted' }).where(eq(timeBlocks.id, id));
+        allCalendarOk = await confirmEventsForBlock(block);
+        if (allCalendarOk) {
+          await db.update(timeBlocks).set({ status: 'locked' }).where(eq(timeBlocks.id, id));
+        }
       }
     }
 
@@ -254,7 +261,11 @@ scheduleRoutes.post(
       metadata: { response },
     });
 
-    return c.json({ ok: true });
+    // `calendarWarning` is set when every participant accepted but at least
+    // one calendar PATCH failed — the auto-lock cron will retry, but the
+    // user-facing UI can show a soft warning so they aren't surprised that
+    // the HOLD prefix lingers for a few minutes.
+    return c.json({ ok: true, calendarWarning: !allCalendarOk });
   },
 );
 

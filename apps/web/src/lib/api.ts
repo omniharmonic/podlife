@@ -13,6 +13,7 @@ import type {
   FreeWindow,
   SatisfactionReport,
   ParticipantResponse,
+  RelationshipType,
 } from '@pod-life/shared';
 
 const SESSION_TOKEN_KEY = 'podlife.sessionToken';
@@ -273,10 +274,19 @@ export const partners = {
   list() {
     return request<{ partners: PartnerSummary[] }>(`/api/partners`);
   },
-  invite() {
+  invite(input: { relationshipType?: RelationshipType } = {}) {
     return request<{ inviteUrl: string; token: string; expiresAt: string }>(
       `/api/partners/invite`,
-      { method: 'POST', body: {} },
+      {
+        method: 'POST',
+        body: { relationshipType: input.relationshipType ?? 'partnership' },
+      },
+    );
+  },
+  updateRelationshipType(partnershipId: string, relationshipType: RelationshipType) {
+    return request<{ id: string; relationshipType: RelationshipType }>(
+      `/api/partners/${partnershipId}/type`,
+      { method: 'PATCH', body: { relationshipType } },
     );
   },
   accept(token: string) {
@@ -381,7 +391,7 @@ export const schedule = {
     response: ParticipantResponse,
     changeNote?: string,
   ) {
-    return request<{ ok: true }>(
+    return request<{ ok: true; calendarWarning?: boolean }>(
       `/api/schedule/proposals/${blockId}/respond`,
       {
         method: 'POST',

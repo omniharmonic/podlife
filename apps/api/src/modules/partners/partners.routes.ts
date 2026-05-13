@@ -4,6 +4,7 @@ import {
   inviteParterSchema,
   updatePartnershipPreferencesSchema,
   updatePartnershipStatusSchema,
+  updatePartnershipTypeSchema,
 } from '@pod-life/shared';
 import {
   acceptInvite,
@@ -12,14 +13,15 @@ import {
   listPartners,
   updateMyPreferences,
   updatePartnershipStatus,
+  updateRelationshipType,
 } from './partners.service.js';
 
 export const partnersRoutes = new Hono();
 
 partnersRoutes.post('/invite', zValidator('json', inviteParterSchema), async (c) => {
   const me = c.get('person');
-  const { displayHint } = c.req.valid('json');
-  const result = await createInvite(me.id, displayHint);
+  const { displayHint, relationshipType } = c.req.valid('json');
+  const result = await createInvite(me.id, displayHint, relationshipType);
   return c.json(result);
 });
 
@@ -63,6 +65,18 @@ partnersRoutes.patch(
     const id = c.req.param('id');
     const { status } = c.req.valid('json');
     const result = await updatePartnershipStatus(me.id, id, status);
+    return c.json(result);
+  },
+);
+
+partnersRoutes.patch(
+  '/:id/type',
+  zValidator('json', updatePartnershipTypeSchema),
+  async (c) => {
+    const me = c.get('person');
+    const id = c.req.param('id');
+    const { relationshipType } = c.req.valid('json');
+    const result = await updateRelationshipType(me.id, id, relationshipType);
     return c.json(result);
   },
 );

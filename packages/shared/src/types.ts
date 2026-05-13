@@ -10,6 +10,7 @@ import type {
   CycleStatus,
   PodRole,
   NotificationChannel,
+  RelationshipType,
 } from './enums.js';
 
 export interface Person {
@@ -33,6 +34,7 @@ export interface Partnership {
   personAId: string;
   personBId: string;
   status: PartnershipStatus;
+  relationshipType: RelationshipType;
   invitedBy: string;
   colorA: string;
   colorB: string;
@@ -275,4 +277,5 @@ export interface PartnerSummary {
   myPreferences: PartnershipPreference | null;
   color: string;
   status: PartnershipStatus;
+  relationshipType: RelationshipType;
 }

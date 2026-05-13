@@ -70,7 +70,7 @@ export function OnboardingPage() {
 
   async function generateInvite() {
     try {
-      const res = await invite.mutateAsync();
+      const res = await invite.mutateAsync({});
       setInviteUrl(res.inviteUrl);
     } catch (err) {
       showToast(

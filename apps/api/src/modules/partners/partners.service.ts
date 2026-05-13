@@ -12,6 +12,7 @@ import {
   PARTNER_INVITE_TTL_DAYS,
   type PartnerSummary,
   type PartnershipPreference as PartnershipPreferenceDto,
+  type RelationshipType,
 } from '@pod-life/shared';
 import { db } from '../../db/index.js';
 import {
@@ -39,6 +40,7 @@ export function canonicalPair(a: string, b: string): { aId: string; bId: string 
 export async function createInvite(
   inviterId: string,
   displayHint?: string,
+  relationshipType: RelationshipType = 'partnership',
 ): Promise<{ inviteUrl: string; token: string; expiresAt: Date }> {
   const token = nanoid(32);
   const expiresAt = new Date(Date.now() + PARTNER_INVITE_TTL_DAYS * 24 * 60 * 60 * 1000);
@@ -46,6 +48,7 @@ export async function createInvite(
     invitedBy: inviterId,
     token,
     displayHint: displayHint ?? null,
+    relationshipType,
     expiresAt,
   });
   // Must match the React Router route in apps/web/src/App.tsx (/invite/:token).
@@ -91,6 +94,7 @@ export async function acceptInvite(
       personAId: aId,
       personBId: bId,
       status: 'active',
+      relationshipType: invite.relationshipType,
       invitedBy: invite.invitedBy,
       colorA,
       colorB,
@@ -192,8 +196,36 @@ export async function listPartners(personId: string): Promise<PartnerSummary[]> 
       myPreferences: myPrefs,
       color: (isPersonA ? r.partnership.colorA : r.partnership.colorB) ?? '#E07A5F',
       status: r.partnership.status,
+      relationshipType: (r.partnership.relationshipType as RelationshipType) ?? 'partnership',
     };
   });
+}
+
+export async function updateRelationshipType(
+  personId: string,
+  partnershipId: string,
+  relationshipType: RelationshipType,
+): Promise<{ id: string; relationshipType: RelationshipType }> {
+  await assertPartnershipMember(personId, partnershipId);
+  const [updated] = await db
+    .update(partnerships)
+    .set({ relationshipType })
+    .where(eq(partnerships.id, partnershipId))
+    .returning();
+  if (!updated) throw new NotFoundError('Partnership not found');
+
+  await db.insert(auditLog).values({
+    personId,
+    action: 'partnership.relationship_type',
+    resourceType: 'partnership',
+    resourceId: partnershipId,
+    metadata: { relationshipType },
+  });
+
+  return {
+    id: updated.id,
+    relationshipType: (updated.relationshipType as RelationshipType) ?? 'partnership',
+  };
 }
 
 export function rowToPrefDto(

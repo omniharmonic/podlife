@@ -2,14 +2,17 @@ import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { parseISO } from 'date-fns';
-import { usePartnersList } from '@/hooks/usePartners';
+import type { RelationshipType } from '@pod-life/shared';
+import { usePartnersList, useUpdateRelationshipType } from '@/hooks/usePartners';
 import { useProposals } from '@/hooks/useSchedule';
 import { useAuth } from '@/hooks/useAuth';
 import { Card } from '@/components/ui/Card';
 import { Avatar } from '@/components/ui/Avatar';
 import { SatisfactionRing } from '@/components/ui/SatisfactionRing';
+import { Toggle } from '@/components/ui/Toggle';
 import { ExplainScheduleButton } from '@/components/ai/ExplainScheduleButton';
 import { PartnerPreferencesEditor } from '@/components/partners/PartnerPreferencesEditor';
+import { useUiStore } from '@/stores/ui.store';
 import { formatDayShort, formatTimeRange } from '@/lib/dates';
 
 export function PartnerDetailPage() {
@@ -17,8 +20,28 @@ export function PartnerDetailPage() {
   const { person } = useAuth();
   const partnersList = usePartnersList();
   const proposals = useProposals();
+  const updateType = useUpdateRelationshipType(id);
+  const showToast = useUiStore((s) => s.showToast);
 
   const partner = partnersList.data?.find((p) => p.partnershipId === id);
+
+  async function onToggleFriendship(isFriendship: boolean) {
+    const next: RelationshipType = isFriendship ? 'friendship' : 'partnership';
+    try {
+      await updateType.mutateAsync(next);
+      showToast(
+        next === 'friendship'
+          ? 'Switched to friendship'
+          : 'Switched to partnership',
+        'success',
+      );
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : 'Could not update',
+        'error',
+      );
+    }
+  }
 
   const sharedBlocks = useMemo(() => {
     return (proposals.data?.proposals ?? [])
@@ -66,7 +89,9 @@ export function PartnerDetailPage() {
               className="ring-4 ring-cream shrink-0"
             />
             <div className="flex-1 min-w-0">
-              <p className="eyebrow mb-1.5">Partner</p>
+              <p className="eyebrow mb-1.5">
+                {partner.relationshipType === 'friendship' ? 'Friend' : 'Partner'}
+              </p>
               <h1 className="font-display text-ink-800 text-[2.4rem] sm:text-[2.9rem] leading-[1.04] tracking-[-0.005em]">
                 {partner.partner.displayName}
               </h1>
@@ -99,11 +124,22 @@ export function PartnerDetailPage() {
       )}
 
       <div className="grid lg:grid-cols-[1fr_320px] gap-7">
-        <section>
+        <section className="flex flex-col gap-6">
+          {partner && (
+            <Card padding="md">
+              <Toggle
+                checked={partner.relationshipType === 'friendship'}
+                onChange={onToggleFriendship}
+                label="This is a friendship, not a partnership"
+                description="Friendships hide overnight and date-night fields. Same scheduling, less romantic baggage."
+              />
+            </Card>
+          )}
           {partner ? (
             <PartnerPreferencesEditor
               partnershipId={id}
               partnerName={partner.partner.displayName}
+              relationshipType={partner.relationshipType}
             />
           ) : (
             <p className="text-ink-500 text-sm">Loading…</p>

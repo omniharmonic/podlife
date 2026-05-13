@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { PartnershipPreference } from '@pod-life/shared';
+import type { PartnershipPreference, RelationshipType } from '@pod-life/shared';
 import { partners } from '@/lib/api';
 
 const KEYS = {
@@ -43,7 +43,17 @@ export function useUpdatePartnerPreferences(partnershipId: string) {
 
 export function useInvitePartner() {
   return useMutation({
-    mutationFn: () => partners.invite(),
+    mutationFn: (input: { relationshipType?: RelationshipType } = {}) =>
+      partners.invite(input),
+  });
+}
+
+export function useUpdateRelationshipType(partnershipId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (relationshipType: RelationshipType) =>
+      partners.updateRelationshipType(partnershipId, relationshipType),
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEYS.list }),
   });
 }
 

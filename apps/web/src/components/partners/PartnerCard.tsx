@@ -130,6 +130,7 @@ export function PartnerCard({
               <PartnerPreferencesEditor
                 partnershipId={partner.partnershipId}
                 partnerName={name}
+                relationshipType={partner.relationshipType}
               />
             </div>
           </motion.section>

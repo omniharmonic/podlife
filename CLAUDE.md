@@ -128,9 +128,17 @@ This is the most important thing to get right. Pod Life handles information abou
 
 - API responses (partnerships, schedules, satisfaction scores)
 - Telegram messages (both DMs and group chats)
-- Calendar events written back (event titles must not reveal other partners)
 - Error messages (must not leak partner names or pod names from other contexts)
 - Timing patterns (addressed by optional privacy mode with scheduling jitter)
+
+**Exception, by deliberate product decision:** each user's own connected
+calendar is treated as their private space — event titles written there
+*do* include the partner name ("Date Night with Sam") or pod name ("Pod
+Gathering with Home Base"). This trades a privacy surface (anyone with
+access to that calendar sees the name) for the utility of recognizable
+events. Users who share their calendar with someone outside the pod accept
+that surface; in-app views, pod chats, and any cross-pod surfaces still
+follow the discreet-titles rule.
 
 **Defense in depth:**
 

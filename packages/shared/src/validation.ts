@@ -8,6 +8,7 @@ import {
   CYCLE_STATUS,
   POD_ROLE,
   NOTIFICATION_CHANNEL,
+  RELATIONSHIP_TYPE,
 } from './enums.js';
 
 const HHMM = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Must be HH:MM');
@@ -89,6 +90,11 @@ export const updatePersonSchema = z.object({
 
 export const inviteParterSchema = z.object({
   displayHint: z.string().max(80).optional(),
+  relationshipType: z.enum(RELATIONSHIP_TYPE).default('partnership'),
+});
+
+export const updatePartnershipTypeSchema = z.object({
+  relationshipType: z.enum(RELATIONSHIP_TYPE),
 });
 
 export const updatePartnershipPreferencesSchema = z

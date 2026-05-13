@@ -5,10 +5,12 @@
  * but the inline confirm-events step failed for some reason — calendar API
  * blip, our request timed out, etc.) and brings them home:
  *   1. Remove the HOLD prefix from each participant's calendar event.
- *   2. Transition the block to `locked` so the cycle can wrap up.
+ *   2. Transition the block to `locked` (only if every PATCH succeeded).
  *
  * Idempotent — safe to re-run. Calendar PATCHes are no-ops when the title is
- * already correct, and confirmEventsForBlock swallows individual failures.
+ * already correct. confirmEventsForBlock returns false when any participant's
+ * PATCH failed, in which case the block stays in `accepted` for the next
+ * sweep to retry.
  *
  * Wired to /api/cron/auto-lock via vercel.json (runs daily on Hobby; happy
  * to bump to hourly if/when you upgrade to Pro).
@@ -32,9 +34,15 @@ export async function runAutoLock(): Promise<void> {
 
   for (const block of accepted) {
     try {
-      await confirmEventsForBlock(block);
-      await db.update(timeBlocks).set({ status: 'locked' }).where(eq(timeBlocks.id, block.id));
-      logger.info('auto-lock: confirmed + locked', { blockId: block.id });
+      const ok = await confirmEventsForBlock(block);
+      if (ok) {
+        await db.update(timeBlocks).set({ status: 'locked' }).where(eq(timeBlocks.id, block.id));
+        logger.info('auto-lock: confirmed + locked', { blockId: block.id });
+      } else {
+        logger.info('auto-lock: partial confirm, will retry next sweep', {
+          blockId: block.id,
+        });
+      }
     } catch (err) {
       logger.warn('auto-lock: failed to confirm', {
         blockId: block.id,
