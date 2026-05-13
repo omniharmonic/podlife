@@ -13,6 +13,7 @@ import {
   type PartnerSummary,
   type PartnershipPreference as PartnershipPreferenceDto,
   type RelationshipType,
+  type SchedulingCadence,
 } from '@pod-life/shared';
 import { db } from '../../db/index.js';
 import {
@@ -197,8 +198,163 @@ export async function listPartners(personId: string): Promise<PartnerSummary[]> 
       color: (isPersonA ? r.partnership.colorA : r.partnership.colorB) ?? '#E07A5F',
       status: r.partnership.status,
       relationshipType: (r.partnership.relationshipType as RelationshipType) ?? 'partnership',
+      cadence: (r.partnership.cadence as SchedulingCadence) ?? 'weekly',
+      pendingCadence: (r.partnership.pendingCadence as SchedulingCadence | null) ?? null,
+      pendingCadenceBy: r.partnership.pendingCadenceBy ?? null,
     };
   });
+}
+
+/**
+ * Propose a new cadence for a partnership. Either party can propose. The
+ * proposal stays in `pending_cadence` until the *other* party accepts.
+ *
+ * Edge cases handled here:
+ *  - Proposing the current cadence clears any pending proposal (treated as
+ *    a withdrawal / no-op rather than rejected).
+ *  - Re-proposing while a proposal is already pending overwrites it,
+ *    regardless of who proposed it last — last writer wins.
+ */
+export async function proposeCadence(
+  personId: string,
+  partnershipId: string,
+  cadence: SchedulingCadence,
+): Promise<{ cadence: SchedulingCadence; pendingCadence: SchedulingCadence | null; pendingCadenceBy: string | null }> {
+  await assertPartnershipMember(personId, partnershipId);
+  const rows = await db
+    .select()
+    .from(partnerships)
+    .where(eq(partnerships.id, partnershipId))
+    .limit(1);
+  const p = rows[0];
+  if (!p) throw new NotFoundError('Partnership not found');
+
+  const current = (p.cadence as SchedulingCadence) ?? 'weekly';
+
+  // Proposing the current cadence withdraws any pending proposal.
+  if (cadence === current) {
+    const [updated] = await db
+      .update(partnerships)
+      .set({ pendingCadence: null, pendingCadenceBy: null })
+      .where(eq(partnerships.id, partnershipId))
+      .returning();
+    if (!updated) throw new NotFoundError('Partnership not found');
+    await db.insert(auditLog).values({
+      personId,
+      action: 'partnership.cadence.withdraw',
+      resourceType: 'partnership',
+      resourceId: partnershipId,
+      metadata: { cadence },
+    });
+    return { cadence: current, pendingCadence: null, pendingCadenceBy: null };
+  }
+
+  const [updated] = await db
+    .update(partnerships)
+    .set({ pendingCadence: cadence, pendingCadenceBy: personId })
+    .where(eq(partnerships.id, partnershipId))
+    .returning();
+  if (!updated) throw new NotFoundError('Partnership not found');
+
+  await db.insert(auditLog).values({
+    personId,
+    action: 'partnership.cadence.propose',
+    resourceType: 'partnership',
+    resourceId: partnershipId,
+    metadata: { from: current, to: cadence },
+  });
+
+  return {
+    cadence: current,
+    pendingCadence: cadence,
+    pendingCadenceBy: personId,
+  };
+}
+
+/**
+ * Accept the pending cadence proposal — only the *other* party can do this.
+ * 400 if there's no pending proposal; 400 if the caller is the proposer.
+ */
+export async function acceptCadenceProposal(
+  personId: string,
+  partnershipId: string,
+): Promise<{ cadence: SchedulingCadence; pendingCadence: null; pendingCadenceBy: null }> {
+  await assertPartnershipMember(personId, partnershipId);
+  const rows = await db
+    .select()
+    .from(partnerships)
+    .where(eq(partnerships.id, partnershipId))
+    .limit(1);
+  const p = rows[0];
+  if (!p) throw new NotFoundError('Partnership not found');
+  if (!p.pendingCadence || !p.pendingCadenceBy) {
+    throw new ValidationError('No cadence proposal to accept');
+  }
+  if (p.pendingCadenceBy === personId) {
+    throw new ValidationError('You proposed this cadence — wait for the other party to accept');
+  }
+
+  const next = p.pendingCadence as SchedulingCadence;
+  const [updated] = await db
+    .update(partnerships)
+    .set({ cadence: next, pendingCadence: null, pendingCadenceBy: null })
+    .where(eq(partnerships.id, partnershipId))
+    .returning();
+  if (!updated) throw new NotFoundError('Partnership not found');
+
+  await db.insert(auditLog).values({
+    personId,
+    action: 'partnership.cadence.accept',
+    resourceType: 'partnership',
+    resourceId: partnershipId,
+    metadata: { cadence: next },
+  });
+
+  return { cadence: next, pendingCadence: null, pendingCadenceBy: null };
+}
+
+/**
+ * Decline a pending cadence proposal. Either party can decline — the
+ * proposer treats this as a withdrawal, the other party as a rejection.
+ * The semantic distinction doesn't change the resulting state: pending
+ * cleared, current cadence unchanged.
+ */
+export async function declineCadenceProposal(
+  personId: string,
+  partnershipId: string,
+): Promise<{ cadence: SchedulingCadence; pendingCadence: null; pendingCadenceBy: null }> {
+  await assertPartnershipMember(personId, partnershipId);
+  const rows = await db
+    .select()
+    .from(partnerships)
+    .where(eq(partnerships.id, partnershipId))
+    .limit(1);
+  const p = rows[0];
+  if (!p) throw new NotFoundError('Partnership not found');
+  if (!p.pendingCadence) {
+    throw new ValidationError('No cadence proposal to decline');
+  }
+
+  const [updated] = await db
+    .update(partnerships)
+    .set({ pendingCadence: null, pendingCadenceBy: null })
+    .where(eq(partnerships.id, partnershipId))
+    .returning();
+  if (!updated) throw new NotFoundError('Partnership not found');
+
+  await db.insert(auditLog).values({
+    personId,
+    action: 'partnership.cadence.decline',
+    resourceType: 'partnership',
+    resourceId: partnershipId,
+    metadata: { declinedProposal: p.pendingCadence },
+  });
+
+  return {
+    cadence: (updated.cadence as SchedulingCadence) ?? 'weekly',
+    pendingCadence: null,
+    pendingCadenceBy: null,
+  };
 }
 
 export async function updateRelationshipType(

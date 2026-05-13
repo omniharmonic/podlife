@@ -278,4 +278,13 @@ export interface PartnerSummary {
   color: string;
   status: PartnershipStatus;
   relationshipType: RelationshipType;
+  /** Agreed scheduling cadence for this partnership. */
+  cadence: SchedulingCadence;
+  /**
+   * If non-null, a cadence change is awaiting the *other* party's accept.
+   * `pendingCadenceBy` is the person who proposed it; from the viewer's
+   * perspective, the proposal is theirs (waiting) or the partner's (banner).
+   */
+  pendingCadence: SchedulingCadence | null;
+  pendingCadenceBy: string | null;
 }

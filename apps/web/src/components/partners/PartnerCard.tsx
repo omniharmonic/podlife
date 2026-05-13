@@ -5,6 +5,7 @@ import { parseISO, formatDistanceToNowStrict } from 'date-fns';
 import type { PartnerSummary } from '@pod-life/shared';
 import { Avatar } from '@/components/ui/Avatar';
 import { SatisfactionRing } from '@/components/ui/SatisfactionRing';
+import { useAuth } from '@/hooks/useAuth';
 import { PartnerPreferencesEditor } from './PartnerPreferencesEditor';
 
 interface PartnerCardProps {
@@ -29,6 +30,7 @@ export function PartnerCard({
   sharedSnippet,
 }: PartnerCardProps) {
   const [open, setOpen] = useState(false);
+  const { person } = useAuth();
   const name = partner.partner.displayName;
   const color = partner.color;
 
@@ -131,6 +133,13 @@ export function PartnerCard({
                 partnershipId={partner.partnershipId}
                 partnerName={name}
                 relationshipType={partner.relationshipType}
+                cadence={partner.cadence}
+                pendingCadence={partner.pendingCadence}
+                pendingProposedByMe={
+                  partner.pendingCadenceBy == null
+                    ? null
+                    : partner.pendingCadenceBy === person?.id
+                }
               />
             </div>
           </motion.section>

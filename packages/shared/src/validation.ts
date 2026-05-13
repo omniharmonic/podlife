@@ -97,6 +97,10 @@ export const updatePartnershipTypeSchema = z.object({
   relationshipType: z.enum(RELATIONSHIP_TYPE),
 });
 
+export const proposePartnershipCadenceSchema = z.object({
+  cadence: z.enum(SCHEDULING_CADENCE),
+});
+
 export const updatePartnershipPreferencesSchema = z
   .object({
     cadence: z.enum(SCHEDULING_CADENCE).optional(),

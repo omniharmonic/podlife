@@ -1,5 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { PartnershipPreference, RelationshipType } from '@pod-life/shared';
+import type {
+  PartnershipPreference,
+  RelationshipType,
+  SchedulingCadence,
+} from '@pod-life/shared';
 import { partners } from '@/lib/api';
 
 const KEYS = {
@@ -53,6 +57,31 @@ export function useUpdateRelationshipType(partnershipId: string) {
   return useMutation({
     mutationFn: (relationshipType: RelationshipType) =>
       partners.updateRelationshipType(partnershipId, relationshipType),
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEYS.list }),
+  });
+}
+
+export function useProposeCadence(partnershipId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (cadence: SchedulingCadence) =>
+      partners.proposeCadence(partnershipId, cadence),
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEYS.list }),
+  });
+}
+
+export function useAcceptCadence(partnershipId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => partners.acceptCadence(partnershipId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEYS.list }),
+  });
+}
+
+export function useDeclineCadence(partnershipId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => partners.declineCadence(partnershipId),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEYS.list }),
   });
 }

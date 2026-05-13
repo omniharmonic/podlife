@@ -14,6 +14,7 @@ import type {
   SatisfactionReport,
   ParticipantResponse,
   RelationshipType,
+  SchedulingCadence,
 } from '@pod-life/shared';
 
 const SESSION_TOKEN_KEY = 'podlife.sessionToken';
@@ -288,6 +289,36 @@ export const partners = {
       `/api/partners/${partnershipId}/type`,
       { method: 'PATCH', body: { relationshipType } },
     );
+  },
+  proposeCadence(partnershipId: string, cadence: SchedulingCadence) {
+    return request<{
+      cadence: SchedulingCadence;
+      pendingCadence: SchedulingCadence | null;
+      pendingCadenceBy: string | null;
+    }>(`/api/partners/${partnershipId}/cadence/propose`, {
+      method: 'POST',
+      body: { cadence },
+    });
+  },
+  acceptCadence(partnershipId: string) {
+    return request<{
+      cadence: SchedulingCadence;
+      pendingCadence: null;
+      pendingCadenceBy: null;
+    }>(`/api/partners/${partnershipId}/cadence/accept`, {
+      method: 'POST',
+      body: {},
+    });
+  },
+  declineCadence(partnershipId: string) {
+    return request<{
+      cadence: SchedulingCadence;
+      pendingCadence: null;
+      pendingCadenceBy: null;
+    }>(`/api/partners/${partnershipId}/cadence/decline`, {
+      method: 'POST',
+      body: {},
+    });
   },
   accept(token: string) {
     return request<{ partnershipId: string }>(
