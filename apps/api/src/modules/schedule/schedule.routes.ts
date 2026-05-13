@@ -22,7 +22,6 @@ import {
   cancelEventForParticipant,
   confirmEventsForBlock,
 } from '../../services/calendar/calendar.writer.js';
-import { config } from '../../lib/config.js';
 import { logger } from '../../lib/logger.js';
 
 export const scheduleRoutes = new Hono();
@@ -310,7 +309,7 @@ scheduleRoutes.post(
             notify(p.personId, {
               title: 'Schedule reshuffle requested',
               body: `${reshufflerName} requested a reshuffle. A new proposal is on its way.`,
-              actionUrl: `${config.frontendUrl}/schedule`,
+              actionUrl: '/schedule/review',
               channels: ['in_app'],
             }),
           ),
