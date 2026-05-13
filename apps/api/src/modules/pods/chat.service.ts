@@ -15,7 +15,6 @@ import {
 } from '../../db/schema.js';
 import { ForbiddenError, NotFoundError } from '../../lib/errors.js';
 import { send as notify } from '../../services/notification/notification.service.js';
-import { config } from '../../lib/config.js';
 import { logger } from '../../lib/logger.js';
 
 export interface ChatMessageDto {
@@ -86,7 +85,7 @@ export async function postMessage(
   void notifyOtherPodMembers(podId, authorId, {
     title: `${authorName} in pod chat`,
     body: truncate(body, 80),
-    actionUrl: `${config.frontendUrl}/pods/${podId}`,
+    actionUrl: `/pods/${podId}`,
   }).catch((err) => {
     logger.warn('pod chat notification failed', { podId, err: (err as Error).message });
   });

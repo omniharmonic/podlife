@@ -354,7 +354,10 @@ export async function processCycleJob(data: { cycleId: string }): Promise<unknow
       await notify(pid, {
         title: 'New schedule proposed',
         body: 'Pod Life has new time-block proposals for your review.',
-        actionUrl: `${config.frontendUrl}/schedule/cycles/${cycle.id}`,
+        // Relative path — the in-app NotificationCard renders this with
+        // React Router's <Link>, so SPA navigation stays SPA-side. The
+        // Telegram dispatcher prepends frontendUrl when relevant.
+        actionUrl: '/schedule/review',
         // Suppress the in-line Telegram dispatch from the generic notify(),
         // because we send richer per-person Telegram DMs below.
         channels: ['in_app'],

@@ -144,7 +144,7 @@ export async function acceptInvite(
     await notify(invite.invitedBy, {
       title: 'Partner invite accepted',
       body: `${accepterName} accepted your invitation.`,
-      actionUrl: `${config.frontendUrl}/partners`,
+      actionUrl: '/partners',
       channels: ['in_app'],
     });
   } catch (err) {

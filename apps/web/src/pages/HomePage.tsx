@@ -581,6 +581,40 @@ interface NotifCardProps {
   onOpen: () => void;
 }
 
+/**
+ * Normalize a notification's actionUrl into a path the React Router <Link>
+ * can navigate to via SPA navigation. Handles three cases:
+ *   1. Same-origin absolute URLs → strip the origin so SPA navigation kicks
+ *      in (otherwise <Link> treats absolute URLs as external links and
+ *      does a full page reload).
+ *   2. The legacy /schedule/cycles/:id path that was never registered as a
+ *      route → rewrite to /schedule/review (the actual review page).
+ *   3. Other absolute URLs (different origin, mailto:, etc.) → pass through.
+ *
+ * Server-side, new notifications now store relative paths directly. This
+ * normalizer covers legacy data already in the DB plus defense-in-depth
+ * against future callers that pass a full URL by mistake.
+ */
+export function normalizeActionUrl(raw: string): string {
+  let url = raw;
+  // Strip a same-origin prefix.
+  try {
+    const parsed = new URL(raw);
+    if (parsed.origin === window.location.origin) {
+      url = parsed.pathname + parsed.search + parsed.hash;
+    } else {
+      return raw; // foreign origin — leave alone
+    }
+  } catch {
+    /* not an absolute URL; keep as-is */
+  }
+  // Rewrite the legacy "new schedule proposed" path to the real review page.
+  if (/^\/schedule\/cycles\/[^/]+\/?$/.test(url) || url === '/schedule') {
+    return '/schedule/review';
+  }
+  return url;
+}
+
 function NotificationCard({ title, body, createdAt, actionUrl, onOpen }: NotifCardProps) {
   const ago = formatDistanceToNowStrict(parseISO(createdAt), { addSuffix: true });
   const content = (
@@ -597,8 +631,9 @@ function NotificationCard({ title, body, createdAt, actionUrl, onOpen }: NotifCa
     </Card>
   );
   if (actionUrl) {
+    const normalized = normalizeActionUrl(actionUrl);
     return (
-      <Link to={actionUrl} onClick={onOpen} className="block">
+      <Link to={normalized} onClick={onOpen} className="block">
         {content}
       </Link>
     );

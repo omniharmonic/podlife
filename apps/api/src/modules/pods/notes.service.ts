@@ -11,7 +11,6 @@ import { db } from '../../db/index.js';
 import { podNotes, persons } from '../../db/schema.js';
 import { ForbiddenError, NotFoundError } from '../../lib/errors.js';
 import { notifyOtherPodMembers } from './chat.service.js';
-import { config } from '../../lib/config.js';
 import { logger } from '../../lib/logger.js';
 
 export interface NoteDto {
@@ -66,7 +65,7 @@ export async function createNote(
   void notifyOtherPodMembers(podId, authorId, {
     title: `${authorName} added a pod note`,
     body: truncate(body, 80),
-    actionUrl: `${config.frontendUrl}/pods/${podId}`,
+    actionUrl: `/pods/${podId}`,
   }).catch((err) => {
     logger.warn('pod note notification failed', { podId, err: (err as Error).message });
   });

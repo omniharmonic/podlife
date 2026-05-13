@@ -6,8 +6,22 @@
 import { eq } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { notifications, persons } from '../../db/schema.js';
+import { config } from '../../lib/config.js';
 import { logger } from '../../lib/logger.js';
 import { sendDmToPerson } from './telegram.adapter.js';
+
+/**
+ * Build a fully-qualified URL for external channels. Callers store relative
+ * paths in actionUrl (e.g. "/schedule/review") so that in-app rendering can
+ * use React Router's <Link to> with SPA navigation. Outbound channels like
+ * Telegram need a clickable absolute URL, so we prepend frontendUrl here.
+ * Absolute URLs are passed through unchanged for backwards compatibility
+ * with any legacy callers.
+ */
+function absoluteUrlFor(actionUrl: string): string {
+  if (/^https?:\/\//i.test(actionUrl)) return actionUrl;
+  return `${config.frontendUrl}${actionUrl.startsWith('/') ? '' : '/'}${actionUrl}`;
+}
 
 export interface NotificationPayload {
   title: string;
@@ -44,7 +58,7 @@ export async function send(personId: string, payload: NotificationPayload): Prom
   if (channels.includes('telegram')) {
     try {
       const text = payload.actionUrl
-        ? `${payload.title}\n\n${payload.body}\n\n${payload.actionUrl}`
+        ? `${payload.title}\n\n${payload.body}\n\n${absoluteUrlFor(payload.actionUrl)}`
         : `${payload.title}\n\n${payload.body}`;
       await sendDmToPerson(personId, { text, cycleId: payload.cycleId ?? null });
     } catch (err) {
