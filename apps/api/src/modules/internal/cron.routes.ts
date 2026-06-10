@@ -9,6 +9,7 @@
 import { Hono } from 'hono';
 import { config } from '../../lib/config.js';
 import { logger } from '../../lib/logger.js';
+import { safeEqual } from '../../lib/timing.js';
 import { queue } from '../../jobs/queue.js';
 
 export const cronRoutes = new Hono();
@@ -16,7 +17,8 @@ export const cronRoutes = new Hono();
 function verifyCron(authHeader: string | null): boolean {
   // In dev, allow without secret so you can curl locally.
   if (!config.cronSecret) return !config.isProduction;
-  return authHeader === `Bearer ${config.cronSecret}`;
+  if (!authHeader) return false;
+  return safeEqual(authHeader, `Bearer ${config.cronSecret}`);
 }
 
 cronRoutes.get('/auto-lock', async (c) => {

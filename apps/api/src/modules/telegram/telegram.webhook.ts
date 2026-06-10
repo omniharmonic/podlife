@@ -11,6 +11,7 @@ import { config } from '../../lib/config.js';
 import { logger } from '../../lib/logger.js';
 import { getBot } from './telegram.bot.js';
 import { runWithServiceContext } from '../../db/rls.js';
+import { safeEqual } from '../../lib/timing.js';
 import { NotFoundError } from '../../lib/errors.js';
 
 export const telegramWebhookRoutes = new Hono();
@@ -20,7 +21,7 @@ telegramWebhookRoutes.post('/:secret', async (c) => {
     throw new NotFoundError();
   }
   const secret = c.req.param('secret');
-  if (secret !== config.telegram.webhookSecret) {
+  if (!safeEqual(secret, config.telegram.webhookSecret)) {
     throw new NotFoundError();
   }
   const bot = getBot();
