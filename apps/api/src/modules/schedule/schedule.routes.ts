@@ -75,6 +75,39 @@ scheduleRoutes.get('/proposals', async (c) => {
       ),
     );
 
+  // Participants for each block (the people I'm being scheduled with). The
+  // requester is a participant of every block here, so co-participants are
+  // people they share the block with — appropriate to surface, and what the
+  // calendar/review UI needs to render names and colors.
+  const blockIds = myBlocks.map((b) => b.tb.id);
+  const participantRows = blockIds.length
+    ? await db
+        .select({
+          timeBlockId: timeBlockParticipants.timeBlockId,
+          personId: timeBlockParticipants.personId,
+          response: timeBlockParticipants.response,
+          displayName: persons.displayName,
+          avatarUrl: persons.avatarUrl,
+        })
+        .from(timeBlockParticipants)
+        .innerJoin(persons, eq(persons.id, timeBlockParticipants.personId))
+        .where(inArray(timeBlockParticipants.timeBlockId, blockIds))
+    : [];
+  const participantsByBlock = new Map<
+    string,
+    Array<{ personId: string; displayName: string; avatarUrl: string | null; response: string }>
+  >();
+  for (const p of participantRows) {
+    const arr = participantsByBlock.get(p.timeBlockId) ?? [];
+    arr.push({
+      personId: p.personId,
+      displayName: p.displayName,
+      avatarUrl: p.avatarUrl ?? null,
+      response: p.response,
+    });
+    participantsByBlock.set(p.timeBlockId, arr);
+  }
+
   // Pull satisfaction from the most recent cycle this person is in. The
   // calendar header + per-partner rings consume this. Privacy: filter to
   // only this person's row before returning.
@@ -108,6 +141,7 @@ scheduleRoutes.get('/proposals', async (c) => {
       myResponse: part.response,
       partnershipId: tb.partnershipId,
       sourcePodId: tb.sourcePodId,
+      participants: participantsByBlock.get(tb.id) ?? [],
       satisfactionContribution: tb.satisfactionContribution ?? {},
     })),
     satisfaction,

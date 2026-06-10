@@ -83,7 +83,7 @@ export const updatePersonSchema = z.object({
   // P9.3: opt-in scheduling jitter to reduce timing-pattern inference.
   privacyMode: z.boolean().optional(),
   // ISO timestamp marking onboarding completion.
-  onboardedAt: z.string().datetime().nullable().optional(),
+  onboardedAt: z.string().datetime({ offset: true }).nullable().optional(),
 });
 
 // ─── Invites (unified: partner + pod) ──────────────────────────
@@ -171,8 +171,8 @@ export const updatePodPreferencesSchema = z.object({
 
 export const runCycleSchema = z.object({
   podId: z.string().uuid().optional(),
-  horizonStart: z.string().datetime().optional(),
-  horizonEnd: z.string().datetime().optional(),
+  horizonStart: z.string().datetime({ offset: true }).optional(),
+  horizonEnd: z.string().datetime({ offset: true }).optional(),
 });
 
 export const respondToProposalSchema = z.object({
@@ -185,8 +185,8 @@ export const reshuffleRequestSchema = z.object({
   reason: z.string().min(1).max(500),
   preferredAlternative: z
     .object({
-      start: z.string().datetime(),
-      end: z.string().datetime(),
+      start: z.string().datetime({ offset: true }),
+      end: z.string().datetime({ offset: true }),
     })
     .optional(),
 });
@@ -194,8 +194,8 @@ export const reshuffleRequestSchema = z.object({
 // ─── Calendar (manual availability fallback when no provider connected) ──
 
 export const manualAvailabilityWindowSchema = z.object({
-  start: z.string().datetime(),
-  end: z.string().datetime(),
+  start: z.string().datetime({ offset: true }),
+  end: z.string().datetime({ offset: true }),
 });
 
 export const setManualAvailabilitySchema = z.object({
