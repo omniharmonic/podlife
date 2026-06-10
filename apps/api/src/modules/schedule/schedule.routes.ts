@@ -7,9 +7,11 @@ import {
   runCycleSchema,
 } from '@pod-life/shared';
 import { db } from '../../db/index.js';
+import { isNotNull } from 'drizzle-orm';
 import {
   auditLog,
   persons,
+  podMembers,
   schedulingCycles,
   timeBlockParticipants,
   timeBlocks,
@@ -30,6 +32,25 @@ export const scheduleRoutes = new Hono();
 scheduleRoutes.post('/run', zValidator('json', runCycleSchema), async (c) => {
   const me = c.get('person');
   const data = c.req.valid('json');
+  // If a pod cycle is requested, the caller must be a member of that pod.
+  // Without this check a non-member could trigger a cycle over a pod they
+  // aren't in, consuming its members' availability and notifying them (H2).
+  if (data.podId) {
+    const membership = await db
+      .select({ podId: podMembers.podId })
+      .from(podMembers)
+      .where(
+        and(
+          eq(podMembers.podId, data.podId),
+          eq(podMembers.personId, me.id),
+          isNotNull(podMembers.joinedAt),
+        ),
+      )
+      .limit(1);
+    if (membership.length === 0) {
+      throw new NotFoundError('Pod not found');
+    }
+  }
   const out = await triggerCycle({
     personId: me.id,
     triggerType: 'manual',
@@ -275,6 +296,22 @@ scheduleRoutes.post(
   async (c) => {
     const me = c.get('person');
     const data = c.req.valid('json');
+    // Authorization: only a participant of the block may reshuffle it.
+    // Without this, any authenticated user could cancel/reshuffle another
+    // pod's confirmed block by guessing its id (H1). (RLS also blocks the
+    // UPDATE below, but we check explicitly for a clean 404 and defense in
+    // depth.) Mirror the respond endpoint's participation check.
+    const mine = await db
+      .select({ personId: timeBlockParticipants.personId })
+      .from(timeBlockParticipants)
+      .where(
+        and(
+          eq(timeBlockParticipants.timeBlockId, data.blockId),
+          eq(timeBlockParticipants.personId, me.id),
+        ),
+      )
+      .limit(1);
+    if (mine.length === 0) throw new NotFoundError('Block not found');
     // Mark the original block as reshuffled, then trigger a fresh cycle.
     const [updated] = await db
       .update(timeBlocks)
