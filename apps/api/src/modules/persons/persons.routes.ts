@@ -35,6 +35,43 @@ import {
 
 export const personsRoutes = new Hono();
 
+/**
+ * Identify an image by its magic bytes. Returns the canonical extension and
+ * content-type, or null if the bytes don't match an allowed raster format.
+ * Deliberately excludes SVG (script-bearing) and anything not on the list.
+ */
+function sniffImageType(b: Uint8Array): { ext: string; contentType: string } | null {
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
+  if (
+    b.length >= 8 &&
+    b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47 &&
+    b[4] === 0x0d && b[5] === 0x0a && b[6] === 0x1a && b[7] === 0x0a
+  ) {
+    return { ext: 'png', contentType: 'image/png' };
+  }
+  // JPEG: FF D8 FF
+  if (b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) {
+    return { ext: 'jpg', contentType: 'image/jpeg' };
+  }
+  // GIF: "GIF87a" / "GIF89a"
+  if (
+    b.length >= 6 &&
+    b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x38 &&
+    (b[4] === 0x37 || b[4] === 0x39) && b[5] === 0x61
+  ) {
+    return { ext: 'gif', contentType: 'image/gif' };
+  }
+  // WebP: "RIFF"...."WEBP"
+  if (
+    b.length >= 12 &&
+    b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 &&
+    b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50
+  ) {
+    return { ext: 'webp', contentType: 'image/webp' };
+  }
+  return null;
+}
+
 personsRoutes.get('/me', (c) => {
   const person = c.get('person');
   return c.json({ person: toPersonDto(person) });
@@ -118,20 +155,31 @@ personsRoutes.post('/me/avatar', async (c) => {
   if (!(file instanceof File)) {
     throw new AppError('BAD_REQUEST', 'Expected multipart form field "file"', 400);
   }
-  if (!file.type.startsWith('image/')) {
-    throw new AppError('BAD_REQUEST', 'Only image files are accepted', 400);
-  }
   // 5MB cap — generous for avatars but blocks runaway uploads.
   if (file.size > 5 * 1024 * 1024) {
     throw new AppError('PAYLOAD_TOO_LARGE', 'Avatar must be 5 MB or smaller', 413);
   }
+  // Sniff the actual bytes rather than trusting the client-supplied
+  // content-type or filename extension. Only raster formats are allowed —
+  // notably SVG is rejected because it can carry executable script, and these
+  // blobs are served publicly. The stored content-type and extension are
+  // derived from the sniff, never from the request.
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const sniffed = sniffImageType(bytes);
+  if (!sniffed) {
+    throw new AppError(
+      'BAD_REQUEST',
+      'Only PNG, JPEG, WebP, or GIF images are accepted',
+      400,
+    );
+  }
 
-  // Stable per-person path so re-uploads land at a predictable prefix.
-  const ext = (file.name.split('.').pop() || 'png').toLowerCase().slice(0, 5);
-  const blob = await put(`avatars/${me.id}/${Date.now()}.${ext}`, file, {
+  // Random, unguessable key (random suffix) — the path no longer embeds a
+  // predictable person id + timestamp.
+  const blob = await put(`avatars/${me.id}/avatar.${sniffed.ext}`, file, {
     access: 'public',
-    contentType: file.type,
-    addRandomSuffix: false,
+    contentType: sniffed.contentType,
+    addRandomSuffix: true,
   });
 
   const [updated] = await db
