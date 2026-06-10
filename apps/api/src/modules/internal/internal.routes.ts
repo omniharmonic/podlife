@@ -86,3 +86,4 @@ function registerJob(name: JobName) {
 
 registerJob('run-cycle');
 registerJob('auto-lock');
+registerJob('weekly-sweep');
