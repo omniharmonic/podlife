@@ -9,6 +9,7 @@
  */
 import { eq } from 'drizzle-orm';
 import { db } from '../../db/index.js';
+import { runWithServiceContext } from '../../db/rls.js';
 import { auditLog, persons, pods } from '../../db/schema.js';
 import { logger } from '../../lib/logger.js';
 import { config } from '../../lib/config.js';
@@ -102,6 +103,18 @@ export async function sendDmToPerson(
   personId: string,
   payload: DmPayload,
 ): Promise<DmResult> {
+  // The privacy filter validates against the TARGET person's graph (their
+  // partners). Callers may be authenticated requests scoped to a DIFFERENT
+  // person via RLS, which would make the filter read the wrong graph and
+  // fail-closed. Run the whole dispatch as trusted server code so the filter
+  // sees the recipient's true relationships.
+  return runWithServiceContext(() => sendDmToPersonImpl(personId, payload));
+}
+
+async function sendDmToPersonImpl(
+  personId: string,
+  payload: DmPayload,
+): Promise<DmResult> {
   const transport = getTransport();
   if (!transport) {
     return { delivered: false, reason: 'telegram_disabled' };
@@ -168,6 +181,15 @@ export interface PodGroupPayload {
 }
 
 export async function notifyPodGroup(
+  podId: string,
+  payload: PodGroupPayload,
+): Promise<DmResult> {
+  // Group filter reads pod membership (RLS-protected); run as trusted server
+  // code so it validates against the full pod regardless of caller context.
+  return runWithServiceContext(() => notifyPodGroupImpl(podId, payload));
+}
+
+async function notifyPodGroupImpl(
   podId: string,
   payload: PodGroupPayload,
 ): Promise<DmResult> {

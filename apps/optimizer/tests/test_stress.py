@@ -207,6 +207,7 @@ def test_obvious_infeasibility_is_reported() -> None:
     Construct: A has 1h free, B has 1h free at the same time. Need 5h together.
     """
     from datetime import timedelta as _td
+
     from .fixtures.polycule_configs import HORIZON_START
     short_start = HORIZON_START.replace(hour=18)
     short_end = HORIZON_START.replace(hour=19)  # 1h
@@ -240,6 +241,7 @@ def test_hard_minimums_actually_enforced() -> None:
     """If a hard minimum can be met, the solver MUST meet it, even at the
     cost of a lower z (when other constraints don't conflict)."""
     from datetime import timedelta as _td
+
     from .fixtures.polycule_configs import HORIZON_START, evening_windows
     config = {
         "horizon_start": HORIZON_START,

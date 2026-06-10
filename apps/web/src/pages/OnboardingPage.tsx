@@ -12,6 +12,7 @@ import { Flourish } from '@/components/ui/Flourish';
 import { EditorialHeading } from '@/components/ui/EditorialHeading';
 import { me as meApi } from '@/lib/api';
 import { useUiStore } from '@/stores/ui.store';
+import { COMMON_TIMEZONES } from '@/lib/constants';
 
 const STEPS = ['welcome', 'cycles', 'rest', 'profile', 'invite', 'done'] as const;
 type StepId = (typeof STEPS)[number];
@@ -313,20 +314,7 @@ function ProfileStep({ displayName, setDisplayName, timezone, setTimezone }: Pro
           value={timezone}
           onChange={(e) => setTimezone(e.currentTarget.value)}
         >
-          {[
-            'America/Los_Angeles',
-            'America/Denver',
-            'America/Chicago',
-            'America/New_York',
-            'America/Toronto',
-            'Europe/London',
-            'Europe/Paris',
-            'Europe/Berlin',
-            'Asia/Tokyo',
-            'Asia/Shanghai',
-            'Australia/Sydney',
-            'UTC',
-          ].map((tz) => (
+          {COMMON_TIMEZONES.map((tz) => (
             <option key={tz} value={tz}>
               {tz}
             </option>

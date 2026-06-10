@@ -28,7 +28,18 @@ calendarRoutes.get('/me/availability', async (c) => {
   const start = c.req.query('start');
   const end = c.req.query('end');
   if (!start || !end) throw new AppError('BAD_REQUEST', 'start and end required', 400);
-  const free = await getPersonFreeWindows(me.id, new Date(start), new Date(end));
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  // Guard against unparseable input (e.g. a `+` decoded to a space). Without
+  // this the Invalid Date propagates and a downstream toISOString() throws a
+  // 500 instead of a clean client error.
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+    throw new AppError('BAD_REQUEST', 'start and end must be valid ISO-8601 timestamps', 400);
+  }
+  if (endDate <= startDate) {
+    throw new AppError('BAD_REQUEST', 'end must be after start', 400);
+  }
+  const free = await getPersonFreeWindows(me.id, startDate, endDate);
   return c.json({
     windows: free.map((w) => ({ start: w.start.toISOString(), end: w.end.toISOString() })),
   });

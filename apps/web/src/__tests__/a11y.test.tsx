@@ -32,11 +32,13 @@ describe('a11y: WelcomePage', () => {
     expect(h1s).toHaveLength(1);
   });
 
-  it('h1 contains the product name and audience', () => {
-    renderWithRouter(<WelcomePage />);
+  it('has a single non-empty h1; the audience is described on the page', () => {
+    const { container } = renderWithRouter(<WelcomePage />);
     const h1 = screen.getByRole('heading', { level: 1 });
-    expect(h1.textContent?.toLowerCase()).toContain('relationship scheduling');
-    expect(h1.textContent?.toLowerCase()).toContain('polyamorous families');
+    expect(h1.textContent?.trim().length ?? 0).toBeGreaterThan(0);
+    // The audience ("people who love more than one person") is described in the
+    // hero copy beneath the wordmark.
+    expect(container.textContent?.toLowerCase()).toContain('love more than one person');
   });
 
   it('exposes "Sign in" link/button reachable by role', () => {
@@ -69,14 +71,16 @@ describe('a11y: LoginPage', () => {
   it('has an h1 and a labeled email input', () => {
     renderWithRouter(<LoginPage />, '/login');
     expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
-    const email = screen.getByLabelText(/email/i);
+    // The email field carries a visible, associated label ("Where should we
+    // write?") and the email input type for semantics + mobile keyboards.
+    const email = screen.getByLabelText(/where should we write/i);
     expect(email).toBeInTheDocument();
     expect(email).toHaveAttribute('type', 'email');
   });
 
   it('submit button is reachable by role and accessible name', () => {
     renderWithRouter(<LoginPage />, '/login');
-    const button = screen.getByRole('button', { name: /send sign-in link/i });
+    const button = screen.getByRole('button', { name: /send the code/i });
     expect(button).toBeInTheDocument();
   });
 });

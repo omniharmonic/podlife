@@ -7,14 +7,17 @@ import {
   runCycleSchema,
 } from '@pod-life/shared';
 import { db } from '../../db/index.js';
+import { isNotNull } from 'drizzle-orm';
 import {
   auditLog,
   persons,
+  podMembers,
   schedulingCycles,
   timeBlockParticipants,
   timeBlocks,
 } from '../../db/schema.js';
 import { ForbiddenError, NotFoundError } from '../../lib/errors.js';
+import { runWithServiceContext } from '../../db/rls.js';
 import { processCycleJob, triggerCycle } from './cycle.manager.js';
 import { send as notify } from '../../services/notification/notification.service.js';
 import {
@@ -29,6 +32,25 @@ export const scheduleRoutes = new Hono();
 scheduleRoutes.post('/run', zValidator('json', runCycleSchema), async (c) => {
   const me = c.get('person');
   const data = c.req.valid('json');
+  // If a pod cycle is requested, the caller must be a member of that pod.
+  // Without this check a non-member could trigger a cycle over a pod they
+  // aren't in, consuming its members' availability and notifying them (H2).
+  if (data.podId) {
+    const membership = await db
+      .select({ podId: podMembers.podId })
+      .from(podMembers)
+      .where(
+        and(
+          eq(podMembers.podId, data.podId),
+          eq(podMembers.personId, me.id),
+          isNotNull(podMembers.joinedAt),
+        ),
+      )
+      .limit(1);
+    if (membership.length === 0) {
+      throw new NotFoundError('Pod not found');
+    }
+  }
   const out = await triggerCycle({
     personId: me.id,
     triggerType: 'manual',
@@ -52,6 +74,39 @@ scheduleRoutes.get('/proposals', async (c) => {
         inArray(timeBlocks.status, ['proposed', 'accepted'] as const),
       ),
     );
+
+  // Participants for each block (the people I'm being scheduled with). The
+  // requester is a participant of every block here, so co-participants are
+  // people they share the block with — appropriate to surface, and what the
+  // calendar/review UI needs to render names and colors.
+  const blockIds = myBlocks.map((b) => b.tb.id);
+  const participantRows = blockIds.length
+    ? await db
+        .select({
+          timeBlockId: timeBlockParticipants.timeBlockId,
+          personId: timeBlockParticipants.personId,
+          response: timeBlockParticipants.response,
+          displayName: persons.displayName,
+          avatarUrl: persons.avatarUrl,
+        })
+        .from(timeBlockParticipants)
+        .innerJoin(persons, eq(persons.id, timeBlockParticipants.personId))
+        .where(inArray(timeBlockParticipants.timeBlockId, blockIds))
+    : [];
+  const participantsByBlock = new Map<
+    string,
+    Array<{ personId: string; displayName: string; avatarUrl: string | null; response: string }>
+  >();
+  for (const p of participantRows) {
+    const arr = participantsByBlock.get(p.timeBlockId) ?? [];
+    arr.push({
+      personId: p.personId,
+      displayName: p.displayName,
+      avatarUrl: p.avatarUrl ?? null,
+      response: p.response,
+    });
+    participantsByBlock.set(p.timeBlockId, arr);
+  }
 
   // Pull satisfaction from the most recent cycle this person is in. The
   // calendar header + per-partner rings consume this. Privacy: filter to
@@ -86,6 +141,7 @@ scheduleRoutes.get('/proposals', async (c) => {
       myResponse: part.response,
       partnershipId: tb.partnershipId,
       sourcePodId: tb.sourcePodId,
+      participants: participantsByBlock.get(tb.id) ?? [],
       satisfactionContribution: tb.satisfactionContribution ?? {},
     })),
     satisfaction,
@@ -274,6 +330,22 @@ scheduleRoutes.post(
   async (c) => {
     const me = c.get('person');
     const data = c.req.valid('json');
+    // Authorization: only a participant of the block may reshuffle it.
+    // Without this, any authenticated user could cancel/reshuffle another
+    // pod's confirmed block by guessing its id (H1). (RLS also blocks the
+    // UPDATE below, but we check explicitly for a clean 404 and defense in
+    // depth.) Mirror the respond endpoint's participation check.
+    const mine = await db
+      .select({ personId: timeBlockParticipants.personId })
+      .from(timeBlockParticipants)
+      .where(
+        and(
+          eq(timeBlockParticipants.timeBlockId, data.blockId),
+          eq(timeBlockParticipants.personId, me.id),
+        ),
+      )
+      .limit(1);
+    if (mine.length === 0) throw new NotFoundError('Block not found');
     // Mark the original block as reshuffled, then trigger a fresh cycle.
     const [updated] = await db
       .update(timeBlocks)
@@ -333,6 +405,8 @@ scheduleRoutes.post(
 scheduleRoutes.post('/_test/run-now/:cycleId', async (c) => {
   if (process.env.NODE_ENV !== 'test') throw new ForbiddenError();
   const cycleId = c.req.param('cycleId');
-  const out = await processCycleJob({ cycleId });
+  // Mirror the real worker path: the cycle job runs across many persons and
+  // therefore under service (RLS-bypass) context, not the requester's context.
+  const out = await runWithServiceContext(() => processCycleJob({ cycleId }));
   return c.json(out);
 });

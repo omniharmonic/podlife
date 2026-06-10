@@ -5,10 +5,20 @@
  *   3. Console banner                      — dev fallback so the magic link
  *                                           is visible in logs
  */
+import { createHash } from 'node:crypto';
 import nodemailer, { type Transporter } from 'nodemailer';
 import { Resend } from 'resend';
 import { config } from '../../lib/config.js';
 import { logger } from '../../lib/logger.js';
+
+/**
+ * Non-reversible recipient tag for logs. The raw address is PII and the
+ * subject line can embed a one-time code (sign-in emails), so neither is
+ * logged — only this tag and the transport.
+ */
+function recipientTag(to: string): string {
+  return createHash('sha256').update(to.toLowerCase()).digest('hex').slice(0, 12);
+}
 
 let smtpTransport: Transporter | null = null;
 let resendClient: Resend | null = null;
@@ -79,7 +89,7 @@ export async function sendEmail(msg: EmailMessage): Promise<void> {
     if (error) {
       throw new Error(`Resend send failed: ${error.message}`);
     }
-    logger.info('email sent', { to: msg.to, subject: msg.subject, via: 'resend' });
+    logger.info('email sent', { to: recipientTag(msg.to), via: 'resend' });
     return;
   }
 
@@ -92,7 +102,7 @@ export async function sendEmail(msg: EmailMessage): Promise<void> {
       text: msg.text,
       html: msg.html,
     });
-    logger.info('email sent', { to: msg.to, subject: msg.subject, via: 'smtp' });
+    logger.info('email sent', { to: recipientTag(msg.to), via: 'smtp' });
     return;
   }
 

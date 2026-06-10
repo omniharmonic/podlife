@@ -32,7 +32,7 @@ const EVENT_TIME_OF_DAY_LOCAL: Record<string, [number, number]> = {
 };
 
 /** Hour-of-day in the given IANA timezone for a UTC instant. 0–23. */
-function localHour(date: Date, timezone: string): number {
+export function localHour(date: Date, timezone: string): number {
   const fmt = new Intl.DateTimeFormat('en-US', {
     timeZone: timezone,
     hour: '2-digit',

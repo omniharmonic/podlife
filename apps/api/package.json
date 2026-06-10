@@ -6,8 +6,8 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc -p tsconfig.json",
-    "start": "node dist/index.js",
+    "build": "tsc -p tsconfig.json --noEmit",
+    "start": "tsx src/index.ts",
     "lint": "eslint src --ext .ts --max-warnings 0 || true",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",

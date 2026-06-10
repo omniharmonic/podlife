@@ -13,6 +13,7 @@ import { sql } from 'drizzle-orm';
 import { errorHandler } from './middleware/error.middleware.js';
 import { rateLimit } from './middleware/rate-limit.middleware.js';
 import { requireAuth } from './middleware/auth.middleware.js';
+import { rlsContext } from './middleware/rls.middleware.js';
 import { privacyScrub } from './middleware/privacy.middleware.js';
 import { authRoutes } from './modules/auth/auth.routes.js';
 import { personsRoutes } from './modules/persons/persons.routes.js';
@@ -96,6 +97,9 @@ export function buildApp(): Hono {
   // Authenticated routes ------------------------------------------------------
   const api = new Hono();
   api.use('*', requireAuth);
+  // RLS context runs right after auth so every downstream `db` query is scoped
+  // to the authenticated person at the database layer (second privacy layer).
+  api.use('*', rlsContext);
   // Privacy scrub runs AFTER auth so it can identify the requester. It is the
   // third of four privacy defense layers (CLAUDE.md § Privacy Model).
   api.use('*', privacyScrub);

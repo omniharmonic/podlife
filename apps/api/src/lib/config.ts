@@ -17,6 +17,11 @@ const envSchema = z.object({
 
   // Required
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
+  // Privileged connection used ONLY by migrations (CREATE EXTENSION, CREATE
+  // ROLE, FORCE RLS, etc.). The runtime DATABASE_URL should be a non-superuser
+  // role so RLS applies; this admin URL is the owner/superuser. Falls back to
+  // DATABASE_URL when unset (fine for single-role local setups).
+  DATABASE_ADMIN_URL: z.string().optional().default(''),
   // REDIS_URL is required only when no Upstash Redis is configured.
   // The cross-field check happens after parse — see below.
   REDIS_URL: z.string().optional().default(''),
@@ -104,6 +109,7 @@ export const config = Object.freeze({
   appUrl: parsed.data.APP_URL,
   frontendUrl: parsed.data.FRONTEND_URL,
   databaseUrl: parsed.data.DATABASE_URL,
+  databaseAdminUrl: parsed.data.DATABASE_ADMIN_URL || parsed.data.DATABASE_URL,
   redisUrl: parsed.data.REDIS_URL,
   encryptionKey: parsed.data.ENCRYPTION_KEY,
   optimizerUrl: parsed.data.OPTIMIZER_URL,

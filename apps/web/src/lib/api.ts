@@ -578,7 +578,7 @@ export const ai = {
   },
 };
 
-// ─── New endpoints (notifications, pod chat, pod notes, pod health) ───
+// ─── New endpoints (notifications, pod chat, pod health) ───
 //
 // These are consumed by the Editorial UI overhaul. All return graceful
 // empty results when the server has not yet implemented the endpoint
@@ -594,14 +594,6 @@ export interface NotificationItem {
 }
 
 export interface ChatMessage {
-  id: string;
-  authorId: string;
-  authorName: string;
-  body: string;
-  createdAt: string;
-}
-
-export interface PodNote {
   id: string;
   authorId: string;
   authorName: string;
@@ -650,23 +642,6 @@ export const podChat = {
   },
 };
 
-export const podNotes = {
-  list(podId: string) {
-    return request<{ notes: PodNote[] }>(`/api/pods/${podId}/notes`);
-  },
-  create(podId: string, body: string) {
-    return request<{ note: PodNote }>(`/api/pods/${podId}/notes`, {
-      method: 'POST',
-      body: { body },
-    });
-  },
-  delete(podId: string, noteId: string) {
-    return request<{ ok: true }>(`/api/pods/${podId}/notes/${noteId}`, {
-      method: 'DELETE',
-    });
-  },
-};
-
 export const podHealth = {
   get(podId: string) {
     return request<PodHealth>(`/api/pods/${podId}/health`);
@@ -684,6 +659,5 @@ export const api = {
   ai,
   notifications,
   podChat,
-  podNotes,
   podHealth,
 };

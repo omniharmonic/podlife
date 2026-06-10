@@ -16,6 +16,7 @@
  *
  * See arch § 4.x.
  */
+import { AsyncLocalStorage } from 'node:async_hooks';
 import postgres from 'postgres';
 import { drizzle as drizzlePostgresJs } from 'drizzle-orm/postgres-js';
 import { drizzle as drizzleNeon } from 'drizzle-orm/neon-serverless';
@@ -27,8 +28,31 @@ const isNeon = /\.neon\.tech\b/i.test(config.databaseUrl);
 
 type DrizzlePgJs = ReturnType<typeof drizzlePostgresJs<typeof schema>>;
 
+// ─── Request-scoped DB context (RLS) ────────────────────────────────────────
+// The `db` export below is a proxy that resolves to one of three handles per
+// the current async context:
+//   1. A person-scoped transaction (ctx.tx) — set by runWithPersonContext for
+//      authenticated requests. RLS sees `app.current_person_id` and the user
+//      can only read their own rows.
+//   2. The service handle (ctx.service) — set by runWithServiceContext for
+//      trusted server code (jobs, webhooks, cross-person aggregations). Every
+//      serviceDb connection carries `app.bypass_rls=on`, so RLS is bypassed by
+//      design. This GUC is NEVER derived from request input.
+//   3. The base handle (no context) — RLS is deny-by-default, so reads of
+//      protected tables return nothing. This is the safe fallback.
+interface DbContext {
+  tx?: unknown;
+  service?: boolean;
+}
+export const dbContext = new AsyncLocalStorage<DbContext>();
+
+// libpq startup option that sets the bypass GUC on every service connection.
+const BYPASS_OPTION = '-c app.bypass_rls=on';
+
 let dbInstance: DrizzlePgJs;
+let serviceInstance: DrizzlePgJs;
 let postgresClient: ReturnType<typeof postgres> | null = null;
+let serviceClient: ReturnType<typeof postgres> | null = null;
 let shutdownFn: () => Promise<void>;
 let driverName: 'neon-serverless' | 'postgres-js';
 
@@ -50,24 +74,68 @@ if (isNeon) {
   // and transaction API used in this codebase. We surface the postgres-js
   // typing for ergonomics; the runtime is interchangeable.
   dbInstance = drizzleNeon(pool, { schema }) as unknown as DrizzlePgJs;
+  // Service pool: append the bypass GUC via the libpq `options` startup param.
+  const sep = config.databaseUrl.includes('?') ? '&' : '?';
+  const serviceUrl = `${config.databaseUrl}${sep}options=${encodeURIComponent(BYPASS_OPTION)}`;
+  const servicePool = new NeonPool({ connectionString: serviceUrl });
+  serviceInstance = drizzleNeon(servicePool, { schema }) as unknown as DrizzlePgJs;
   driverName = 'neon-serverless';
   shutdownFn = async () => {
     await pool.end();
+    await servicePool.end();
   };
 } else {
   postgresClient = postgres(config.databaseUrl, {
-    max: 10,
+    max: 20,
     idle_timeout: 20,
     prepare: false, // helps with BEGIN/SET LOCAL flow used for RLS
   });
   dbInstance = drizzlePostgresJs(postgresClient, { schema });
+  // Service pool: every connection sets `app.bypass_rls=on` at startup.
+  serviceClient = postgres(config.databaseUrl, {
+    max: 10,
+    idle_timeout: 20,
+    prepare: false,
+    connection: { options: BYPASS_OPTION },
+  });
+  serviceInstance = drizzlePostgresJs(serviceClient, { schema });
   driverName = 'postgres-js';
   shutdownFn = async () => {
     if (postgresClient) await postgresClient.end({ timeout: 5 });
+    if (serviceClient) await serviceClient.end({ timeout: 5 });
   };
 }
 
-export const db = dbInstance;
+/** Base handle — no RLS context. Used to open person-scoped transactions. */
+export const baseDb = dbInstance;
+/** Service handle — every connection bypasses RLS. Trusted server code only. */
+export const serviceDb = serviceInstance;
+
+/**
+ * Context-aware DB handle. Resolves per async context (see DbContext above).
+ * Application code imports this and never needs to know which handle it is.
+ */
+export const db = new Proxy(dbInstance, {
+  get(target, prop, receiver) {
+    const ctx = dbContext.getStore();
+    let real: unknown = target;
+    if (ctx?.tx) real = ctx.tx;
+    else if (ctx?.service) real = serviceInstance;
+    else if (config.isTest) {
+      // In tests, bare `db` calls outside any request (seeding, assertions)
+      // run with RLS bypassed so fixtures can read/write across persons. Code
+      // under test still goes through routes, which install person context via
+      // runWithPersonContext — so RLS enforcement is exercised for real there.
+      // In production a no-context query stays deny-by-default.
+      real = serviceInstance;
+    }
+    const value = Reflect.get(real as object, prop, receiver);
+    return typeof value === 'function'
+      ? (value as (...a: unknown[]) => unknown).bind(real)
+      : value;
+  },
+}) as DrizzlePgJs;
+
 export type DB = typeof db;
 export { schema };
 
