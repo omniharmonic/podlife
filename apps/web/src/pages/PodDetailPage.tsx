@@ -26,12 +26,7 @@ import {
   getWeekDays,
   getWeekStart,
 } from '@/lib/dates';
-
-const CADENCE_OPTIONS: { value: SchedulingCadence; label: string }[] = [
-  { value: 'weekly', label: 'Weekly' },
-  { value: 'biweekly', label: 'Every 2 weeks' },
-  { value: 'monthly', label: 'Monthly' },
-];
+import { CADENCE_OPTIONS, cadenceLabel } from '@/lib/constants';
 
 const DAY_OPTIONS = [
   { value: 0, label: 'Sunday' },
@@ -592,17 +587,6 @@ export function PodDetailPage() {
       </Modal>
     </motion.div>
   );
-}
-
-function cadenceLabel(c: SchedulingCadence): string {
-  switch (c) {
-    case 'weekly':
-      return 'Weekly';
-    case 'biweekly':
-      return 'Every 2 weeks';
-    case 'monthly':
-      return 'Monthly';
-  }
 }
 
 function dayName(n: number): string {

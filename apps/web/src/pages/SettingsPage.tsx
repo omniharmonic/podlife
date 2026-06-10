@@ -20,21 +20,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { me as meApi, getSessionToken, calendars as calendarsApi } from '@/lib/api';
 import { useUiStore } from '@/stores/ui.store';
 import { format, getWeekStart } from '@/lib/dates';
-
-const COMMON_TZ = [
-  'America/Los_Angeles',
-  'America/Denver',
-  'America/Chicago',
-  'America/New_York',
-  'America/Toronto',
-  'Europe/London',
-  'Europe/Paris',
-  'Europe/Berlin',
-  'Asia/Tokyo',
-  'Asia/Shanghai',
-  'Australia/Sydney',
-  'UTC',
-];
+import { COMMON_TIMEZONES } from '@/lib/constants';
 
 interface ManualWindow {
   day: number;
@@ -127,6 +113,16 @@ export function SettingsPage() {
     // schema permits 0–200 windows. When a calendar is connected, the
     // optimizer prefers it and ignores manual entries entirely (see
     // calendar.aggregator.ts: providerSucceeded short-circuit).
+    // Validate each window has start strictly before end before sending.
+    const invalid = windows.find((w) => {
+      const [sh = 0, sm = 0] = w.start.split(':').map(Number);
+      const [eh = 0, em = 0] = w.end.split(':').map(Number);
+      return eh * 60 + em <= sh * 60 + sm;
+    });
+    if (invalid) {
+      showToast('Each window must end after it starts', 'error');
+      return;
+    }
     const isoWindows = windows.map((w) => {
       const day = addDays(weekStart, w.day);
       const [sh = 0, sm = 0] = w.start.split(':').map(Number);
@@ -292,7 +288,7 @@ export function SettingsPage() {
               value={timezone}
               onChange={(e) => setTimezone(e.currentTarget.value)}
             >
-              {COMMON_TZ.map((tz) => (
+              {COMMON_TIMEZONES.map((tz) => (
                 <option key={tz} value={tz}>
                   {tz}
                 </option>
@@ -628,6 +624,7 @@ export function SettingsPage() {
             placeholder="e.g., Home Base"
             value={podName}
             onChange={(e) => setPodName(e.currentTarget.value)}
+            maxLength={80}
             required
           />
           <EmojiPicker value={podEmoji} onChange={setPodEmoji} label="Emoji" />

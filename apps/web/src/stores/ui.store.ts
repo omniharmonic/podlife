@@ -1,15 +1,11 @@
 import { create } from 'zustand';
 import { getWeekStart } from '@/lib/dates';
 
-type CalendarView = 'week' | 'month';
-
 interface UiState {
   selectedWeekStart: Date;
-  view: CalendarView;
   toast: { id: number; message: string; tone: 'info' | 'success' | 'error' } | null;
   setSelectedWeekStart: (d: Date) => void;
   navigateWeek: (direction: 'prev' | 'next' | 'today') => void;
-  setView: (v: CalendarView) => void;
   showToast: (message: string, tone?: 'info' | 'success' | 'error') => void;
   dismissToast: () => void;
 }
@@ -18,7 +14,6 @@ let toastSeq = 0;
 
 export const useUiStore = create<UiState>((set, get) => ({
   selectedWeekStart: getWeekStart(new Date()),
-  view: 'week',
   toast: null,
 
   setSelectedWeekStart: (d) => set({ selectedWeekStart: getWeekStart(d) }),
@@ -33,8 +28,6 @@ export const useUiStore = create<UiState>((set, get) => ({
     const next = new Date(current.getTime() + delta * 24 * 60 * 60 * 1000);
     set({ selectedWeekStart: getWeekStart(next) });
   },
-
-  setView: (v) => set({ view: v }),
 
   showToast: (message, tone = 'info') => {
     toastSeq += 1;

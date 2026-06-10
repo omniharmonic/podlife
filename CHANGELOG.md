@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [Unreleased] — Security hardening & correctness
+
+### Security
+
+- **RLS is now a real backstop.** Postgres Row-Level Security was previously
+  inert (never-set context, an open `= ''` policy branch, and a superuser
+  connection that bypasses RLS). The app now connects as a dedicated
+  non-superuser role; authenticated requests run inside a person-scoped
+  transaction (`app.current_person_id`), while jobs/webhooks/cross-person
+  aggregations use a service connection that bypasses RLS by design. Policies
+  are deny-by-default. A no-context query now returns zero rows.
+- **Cross-tenant authorization fixes.** `POST /schedule/reshuffle` now requires
+  block participation; `POST /schedule/run` requires pod membership when a pod
+  is targeted. Both were previously reachable by any authenticated user.
+- **Login codes.** Per-email request throttling and invalidation of prior
+  outstanding codes; raw email and code-bearing subject lines removed from logs.
+- **Hardening.** Avatar uploads are validated by magic bytes (raster only; SVG
+  rejected) and stored under unguessable keys. Cron and Telegram webhook secret
+  checks use constant-time comparison.
+
+### Fixed
+
+- Optimizer "evening" (solo-rest constraint) is evaluated in each person's
+  timezone instead of UTC, in both the inline TS solver and the Python
+  reference.
+- `GET /me/availability` returns 400 (not 500) on malformed ranges; datetime
+  schemas accept timezone offsets, not only `Z`.
+- `GET /schedule/proposals` now includes a participants array per block.
+
+### Added
+
+- Automated weekly cycle sweep: pods are triggered on their cadence
+  (idempotent per period) instead of manual-only triggering.
+
+---
+
 ## [0.1.0] — 2026-05-06 — First public release
 
 The first end-to-end working release of Pod Life. Includes the full scheduling

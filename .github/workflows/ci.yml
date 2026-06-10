@@ -48,7 +48,13 @@ jobs:
           --health-timeout 3s
           --health-retries 10
     env:
-      DATABASE_URL: postgresql://podlife:podlife@localhost:5432/podlife_test
+      # Runtime connects as the non-superuser app role so Row-Level Security
+      # actually enforces (superusers/BYPASSRLS roles bypass RLS, which would
+      # make the privacy backstop — and rls.test.ts — silently inert). The
+      # role is created by the migration step using the admin URL below.
+      DATABASE_URL: postgresql://podlife_app:podlife_app@localhost:5432/podlife_test
+      DATABASE_ADMIN_URL: postgresql://podlife:podlife@localhost:5432/podlife_test
+      APP_DB_PASSWORD: podlife_app
       REDIS_URL: redis://localhost:6379
       ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
       APP_URL: http://localhost:3000

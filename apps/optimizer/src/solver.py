@@ -51,8 +51,9 @@ from __future__ import annotations
 
 import logging
 import time
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import highspy
 import numpy as np
@@ -315,7 +316,9 @@ def solve(request: OptimizationRequest) -> OptimizationResponse:
             ci
             for ci, cand in enumerate(candidates)
             if person.person_id in cand.participant_ids
-            and _is_evening_slot(cand, request.horizon_start, slot_minutes)
+            and _is_evening_slot(
+                cand, request.horizon_start, slot_minutes, person.timezone
+            )
         ]
         if not evening_candidates:
             continue
@@ -419,11 +422,23 @@ def solve(request: OptimizationRequest) -> OptimizationResponse:
 
 
 def _is_evening_slot(
-    cand: CandidateSlot, horizon_start: datetime, slot_minutes: int
+    cand: CandidateSlot,
+    horizon_start: datetime,
+    slot_minutes: int,
+    timezone: str,
 ) -> bool:
-    """Return True if the candidate's start hour falls in 18:00–22:59."""
+    """Return True if the candidate's start hour falls in 18:00–22:59 *local*
+    to the given person. A block at 18:00 UTC is morning in Denver and night
+    in Tokyo, so "evening" must be evaluated in the person's own timezone."""
     slot_start = horizon_start + timedelta(minutes=cand.start_slot * slot_minutes)
-    return 18 <= slot_start.hour < 23
+    # Treat a naive horizon as UTC so astimezone converts correctly.
+    if slot_start.tzinfo is None:
+        slot_start = slot_start.replace(tzinfo=UTC)
+    try:
+        local = slot_start.astimezone(ZoneInfo(timezone))
+    except Exception:
+        local = slot_start
+    return 18 <= local.hour < 23
 
 
 def _build_infeasibility_notes(

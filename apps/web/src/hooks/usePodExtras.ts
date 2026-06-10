@@ -2,18 +2,16 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   notifications as notifApi,
   podChat as chatApi,
-  podNotes as notesApi,
   podHealth as healthApi,
   ApiError,
   type NotificationItem,
   type ChatMessage,
-  type PodNote,
   type PodHealth,
 } from '@/lib/api';
 
 /**
  * Hooks for the new endpoints introduced by the Editorial UI overhaul:
- *   notifications, pod chat, pod notes, pod health.
+ *   notifications, pod chat, pod health.
  *
  * If the backend hasn't implemented a given endpoint yet (404), the hook
  * returns an empty array / null instead of an error so the UI can render a
@@ -78,35 +76,6 @@ export function useSendChatMessage(podId: string) {
   return useMutation({
     mutationFn: (body: string) => chatApi.send(podId, body),
     onSuccess: () => qc.invalidateQueries({ queryKey: chatKey(podId) }),
-  });
-}
-
-// ─── Pod notes ───
-
-const notesKey = (podId: string) => ['pods', podId, 'notes'] as const;
-
-export function usePodNotes(podId: string | undefined) {
-  return useQuery({
-    queryKey: podId ? notesKey(podId) : ['pods', 'noop', 'notes'],
-    queryFn: () =>
-      softFallback<{ notes: PodNote[] }>({ notes: [] })(() => notesApi.list(podId!)),
-    enabled: Boolean(podId),
-  });
-}
-
-export function useCreatePodNote(podId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (body: string) => notesApi.create(podId, body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: notesKey(podId) }),
-  });
-}
-
-export function useDeletePodNote(podId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (noteId: string) => notesApi.delete(podId, noteId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: notesKey(podId) }),
   });
 }
 

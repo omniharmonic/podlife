@@ -14,7 +14,7 @@ All fixtures use synthetic single-letter / numeric ids — never real names.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 from .polycule_configs import (

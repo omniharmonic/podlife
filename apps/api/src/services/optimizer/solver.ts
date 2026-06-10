@@ -22,7 +22,7 @@ import type {
   SatisfactionReport,
   OptimizerPersonSpec,
 } from '@pod-life/shared';
-import { discoverCandidateSlots } from './slot-discovery.js';
+import { discoverCandidateSlots, localHour } from './slot-discovery.js';
 import { type CandidateSlot, type PreparedRequest, participantKeyOf } from './types.js';
 
 // ── Tunable constants — must match solver.py ────────────────────────────
@@ -450,7 +450,7 @@ function buildLp(candidates: CandidateSlot[], prepared: PreparedRequest): string
       const cand = candidates[ci]!;
       if (
         cand.participantIds.includes(person.person_id) &&
-        isEveningSlot(cand, prepared.horizonStart, prepared.slotMinutes)
+        isEveningSlot(cand, prepared.horizonStart, prepared.slotMinutes, person.timezone)
       ) {
         eveningCands.push(ci);
       }
@@ -494,11 +494,18 @@ function buildLp(candidates: CandidateSlot[], prepared: PreparedRequest): string
 
 // ── Helpers (port of solver.py helpers) ─────────────────────────────────
 
-function isEveningSlot(cand: CandidateSlot, horizonStart: Date, slotMinutes: number): boolean {
+function isEveningSlot(
+  cand: CandidateSlot,
+  horizonStart: Date,
+  slotMinutes: number,
+  timezone: string,
+): boolean {
   const slotStart = new Date(horizonStart.getTime() + cand.startSlot * slotMinutes * 60_000);
-  // Compare in UTC hours, matching the Python implementation which uses
-  // naive datetime arithmetic on a UTC-anchored horizon.
-  const hour = slotStart.getUTCHours();
+  // "Evening" is local to the person whose solo-rest constraint this is — a
+  // block at 18:00 UTC is morning in Denver and night in Tokyo. Use the
+  // person's IANA timezone, consistent with pair candidate time-of-day
+  // filtering in slot-discovery.
+  const hour = localHour(slotStart, timezone);
   return hour >= 18 && hour < 23;
 }
 
