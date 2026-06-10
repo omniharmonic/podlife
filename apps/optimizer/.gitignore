@@ -1,0 +1,3 @@
+
+# Generated stress-test report (written each pytest run; non-deterministic)
+tests/stress_test_results.json

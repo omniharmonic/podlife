@@ -51,7 +51,7 @@ from __future__ import annotations
 
 import logging
 import time
-from datetime import datetime, timedelta, timezone as _tz
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -433,7 +433,7 @@ def _is_evening_slot(
     slot_start = horizon_start + timedelta(minutes=cand.start_slot * slot_minutes)
     # Treat a naive horizon as UTC so astimezone converts correctly.
     if slot_start.tzinfo is None:
-        slot_start = slot_start.replace(tzinfo=_tz.utc)
+        slot_start = slot_start.replace(tzinfo=UTC)
     try:
         local = slot_start.astimezone(ZoneInfo(timezone))
     except Exception:
