@@ -43,12 +43,21 @@ export interface JobQueue {
  */
 export const JOB_HANDLERS: Record<JobName, (payload: unknown) => Promise<unknown>> = {
   'run-cycle': async (payload) => {
-    const mod = await import('../modules/schedule/cycle.manager.js');
-    return mod.processCycleJob(payload as { cycleId: string });
+    const [mod, { runWithServiceContext }] = await Promise.all([
+      import('../modules/schedule/cycle.manager.js'),
+      import('../db/rls.js'),
+    ]);
+    // Jobs operate across many persons; run with RLS bypassed (trusted code).
+    return runWithServiceContext(() =>
+      mod.processCycleJob(payload as { cycleId: string }),
+    );
   },
   'auto-lock': async () => {
-    const mod = await import('./auto-lock.js');
-    return mod.runAutoLock();
+    const [mod, { runWithServiceContext }] = await Promise.all([
+      import('./auto-lock.js'),
+      import('../db/rls.js'),
+    ]);
+    return runWithServiceContext(() => mod.runAutoLock());
   },
 };
 

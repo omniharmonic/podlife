@@ -75,10 +75,69 @@ BEGIN
   END LOOP;
 END$$;
 
+-- Application role ---------------------------------------------------
+-- RLS is bypassed unconditionally by superusers and by roles with the
+-- BYPASSRLS attribute, regardless of FORCE ROW LEVEL SECURITY. The default
+-- Postgres superuser (e.g. docker's POSTGRES_USER) therefore CANNOT be the
+-- role the API connects as, or the policies below are inert.
+--
+-- We create a dedicated non-superuser, non-BYPASSRLS login role for the app.
+-- Migrations/admin keep running as the owner/superuser; the API (both its
+-- base and service pools) connects as this role. The default password here
+-- is for local/dev only — production must override it (see SELF_HOSTING.md).
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'podlife_app') THEN
+    CREATE ROLE podlife_app LOGIN PASSWORD 'podlife_app' NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE;
+  END IF;
+END$$;
+
+GRANT USAGE ON SCHEMA public TO podlife_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO podlife_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO podlife_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO podlife_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT USAGE, SELECT ON SEQUENCES TO podlife_app;
+
 -- Row-Level Security -------------------------------------------------
--- Per arch § 4.3. Defense-in-depth alongside application access checks.
--- Policies depend on `app.current_person_id` set via SET LOCAL in
--- the auth middleware before each query.
+-- Per arch § 4.3. Defense-in-depth alongside application access checks:
+-- this is the database backstop that contains any application-level scope
+-- bug. Policies are a READ backstop (FOR SELECT) — write authorization is
+-- enforced in the application layer.
+--
+-- Two GUCs drive the policies, both set only by trusted server code:
+--   app.current_person_id  — the authenticated requester (set LOCAL inside a
+--                            per-request transaction by runWithPersonContext).
+--   app.bypass_rls         — 'on' for the service connection pool (jobs,
+--                            webhooks, cross-person aggregations). NEVER
+--                            derived from request input.
+--
+-- Deny-by-default: when neither GUC is set, NULLIF(...) yields NULL, every
+-- comparison is NULL (not true), and the row is hidden. There is no open
+-- `= ''` branch — an unset context sees nothing.
+
+-- Membership predicate for the pod_members policy. A policy on pod_members
+-- that sub-selects pod_members recurses infinitely once RLS is active. We
+-- break the recursion with a SECURITY DEFINER function: it runs as its owner
+-- (the migration superuser), which bypasses RLS inside the function body, so
+-- the membership lookup doesn't re-enter the policy. Marked STABLE; granted to
+-- the app role.
+CREATE OR REPLACE FUNCTION app_is_pod_member(target_pod UUID, who UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM pod_members
+    WHERE pod_id = target_pod
+      AND person_id = who
+      AND joined_at IS NOT NULL
+  );
+$$;
+GRANT EXECUTE ON FUNCTION app_is_pod_member(UUID, UUID) TO podlife_app;
 
 ALTER TABLE partnerships ENABLE ROW LEVEL SECURITY;
 ALTER TABLE partnership_preferences ENABLE ROW LEVEL SECURITY;
@@ -91,14 +150,36 @@ DROP POLICY IF EXISTS partnership_pref_access ON partnership_preferences;
 DROP POLICY IF EXISTS pod_member_access ON pod_members;
 DROP POLICY IF EXISTS time_block_access ON time_blocks;
 
-CREATE POLICY partnership_access ON partnerships FOR ALL USING (
-  current_setting('app.current_person_id', true) = ''
+-- Policies are FOR ALL: the USING clause scopes reads (and the rows an
+-- UPDATE/DELETE may target), the WITH CHECK clause validates rows being
+-- written. Both carry the bypass escape for trusted server code. An
+-- RLS-enabled table with no matching policy denies the command outright, so
+-- FOR ALL is required for the app's own writes to succeed under person
+-- context (e.g. accepting an invite creates a partnership you're part of).
+
+CREATE POLICY partnership_access ON partnerships FOR ALL
+USING (
+  current_setting('app.bypass_rls', true) = 'on'
+  OR person_a_id = NULLIF(current_setting('app.current_person_id', true), '')::UUID
+  OR person_b_id = NULLIF(current_setting('app.current_person_id', true), '')::UUID
+)
+WITH CHECK (
+  current_setting('app.bypass_rls', true) = 'on'
   OR person_a_id = NULLIF(current_setting('app.current_person_id', true), '')::UUID
   OR person_b_id = NULLIF(current_setting('app.current_person_id', true), '')::UUID
 );
 
-CREATE POLICY partnership_pref_access ON partnership_preferences FOR ALL USING (
-  current_setting('app.current_person_id', true) = ''
+CREATE POLICY partnership_pref_access ON partnership_preferences FOR ALL
+USING (
+  current_setting('app.bypass_rls', true) = 'on'
+  OR partnership_id IN (
+    SELECT id FROM partnerships
+    WHERE person_a_id = NULLIF(current_setting('app.current_person_id', true), '')::UUID
+       OR person_b_id = NULLIF(current_setting('app.current_person_id', true), '')::UUID
+  )
+)
+WITH CHECK (
+  current_setting('app.bypass_rls', true) = 'on'
   OR partnership_id IN (
     SELECT id FROM partnerships
     WHERE person_a_id = NULLIF(current_setting('app.current_person_id', true), '')::UUID
@@ -106,17 +187,33 @@ CREATE POLICY partnership_pref_access ON partnership_preferences FOR ALL USING (
   )
 );
 
-CREATE POLICY pod_member_access ON pod_members FOR SELECT USING (
-  current_setting('app.current_person_id', true) = ''
-  OR pod_id IN (
-    SELECT pod_id FROM pod_members pm
-    WHERE pm.person_id = NULLIF(current_setting('app.current_person_id', true), '')::UUID
-      AND pm.joined_at IS NOT NULL
-  )
+-- pod_members: you may read members of pods you belong to. You may insert
+-- your OWN membership (joining a pod / creating one), which is why WITH CHECK
+-- permits person_id = me even before the joined row exists.
+CREATE POLICY pod_member_access ON pod_members FOR ALL
+USING (
+  current_setting('app.bypass_rls', true) = 'on'
+  OR app_is_pod_member(pod_id, NULLIF(current_setting('app.current_person_id', true), '')::UUID)
+)
+WITH CHECK (
+  current_setting('app.bypass_rls', true) = 'on'
+  OR person_id = NULLIF(current_setting('app.current_person_id', true), '')::UUID
+  OR app_is_pod_member(pod_id, NULLIF(current_setting('app.current_person_id', true), '')::UUID)
 );
 
-CREATE POLICY time_block_access ON time_blocks FOR SELECT USING (
-  current_setting('app.current_person_id', true) = ''
+-- time_blocks: you may read/modify blocks you participate in. New blocks are
+-- created by the cycle job under service context (bypass), so person-context
+-- inserts are not expected; the WITH CHECK still scopes any that occur.
+CREATE POLICY time_block_access ON time_blocks FOR ALL
+USING (
+  current_setting('app.bypass_rls', true) = 'on'
+  OR id IN (
+    SELECT time_block_id FROM time_block_participants
+    WHERE person_id = NULLIF(current_setting('app.current_person_id', true), '')::UUID
+  )
+)
+WITH CHECK (
+  current_setting('app.bypass_rls', true) = 'on'
   OR id IN (
     SELECT time_block_id FROM time_block_participants
     WHERE person_id = NULLIF(current_setting('app.current_person_id', true), '')::UUID

@@ -15,6 +15,7 @@ import {
   timeBlocks,
 } from '../../db/schema.js';
 import { ForbiddenError, NotFoundError } from '../../lib/errors.js';
+import { runWithServiceContext } from '../../db/rls.js';
 import { processCycleJob, triggerCycle } from './cycle.manager.js';
 import { send as notify } from '../../services/notification/notification.service.js';
 import {
@@ -333,6 +334,8 @@ scheduleRoutes.post(
 scheduleRoutes.post('/_test/run-now/:cycleId', async (c) => {
   if (process.env.NODE_ENV !== 'test') throw new ForbiddenError();
   const cycleId = c.req.param('cycleId');
-  const out = await processCycleJob({ cycleId });
+  // Mirror the real worker path: the cycle job runs across many persons and
+  // therefore under service (RLS-bypass) context, not the requester's context.
+  const out = await runWithServiceContext(() => processCycleJob({ cycleId }));
   return c.json(out);
 });

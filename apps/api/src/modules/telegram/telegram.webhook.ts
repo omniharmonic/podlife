@@ -10,6 +10,7 @@ import { webhookCallback } from 'grammy';
 import { config } from '../../lib/config.js';
 import { logger } from '../../lib/logger.js';
 import { getBot } from './telegram.bot.js';
+import { runWithServiceContext } from '../../db/rls.js';
 import { NotFoundError } from '../../lib/errors.js';
 
 export const telegramWebhookRoutes = new Hono();
@@ -30,7 +31,10 @@ telegramWebhookRoutes.post('/:secret', async (c) => {
     secretToken: config.telegram.webhookSecret,
   });
   try {
-    return await handler(c);
+    // The bot is unauthenticated (no person context) but is trusted server
+    // code that does its own pod/partnership scoping. Run under service
+    // context so its cross-person lookups aren't blocked by deny-by-default RLS.
+    return await runWithServiceContext(() => handler(c));
   } catch (err) {
     logger.error('telegram webhook error', { err: (err as Error).message });
     return c.json({ ok: false }, 500);

@@ -52,7 +52,12 @@ services:
       - "3000:3000"
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://podlife:${DB_PASSWORD:-podlife}@postgres:5432/podlife
+      # Runtime connects as a NON-superuser role so Row-Level Security applies
+      # (superusers/BYPASSRLS roles bypass RLS unconditionally). The app role
+      # and its grants are created idempotently by the migration step below.
+      DATABASE_URL: postgresql://podlife_app:${APP_DB_PASSWORD:-podlife_app}@postgres:5432/podlife
+      # Migrations need owner/superuser privileges (CREATE ROLE, FORCE RLS, …).
+      DATABASE_ADMIN_URL: postgresql://podlife:${DB_PASSWORD:-podlife}@postgres:5432/podlife
       REDIS_URL: redis://redis:6379
       OPTIMIZER_URL: http://optimizer:8000
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
