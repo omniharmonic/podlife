@@ -24,11 +24,14 @@ import { runSeed } from './seed.js';
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
 async function main(): Promise<void> {
-  const sql = postgres(config.databaseUrl, {
+  // Migrations need owner/superuser privileges (CREATE EXTENSION, CREATE ROLE,
+  // FORCE RLS). Use the admin URL, which falls back to DATABASE_URL.
+  const adminUrl = config.databaseAdminUrl;
+  const sql = postgres(adminUrl, {
     max: 1,
     prepare: false,
     // Some hosting (e.g. Neon) requires SSL even when not in the URL.
-    ssl: config.databaseUrl.includes('sslmode=require') ? 'require' : undefined,
+    ssl: adminUrl.includes('sslmode=require') ? 'require' : undefined,
   });
 
   try {
@@ -40,9 +43,18 @@ async function main(): Promise<void> {
     const db = drizzle(sql, { schema });
     await migrate(db, { migrationsFolder: resolve(__dirname, 'migrations') });
 
-    // 3. Post-migrate: triggers + RLS.
+    // 3. Post-migrate: triggers + RLS + app role.
     const postSql = readFileSync(resolve(__dirname, 'post-migrate.sql'), 'utf8');
     await sql.unsafe(postSql);
+
+    // 3b. Set the application role's password from APP_DB_PASSWORD when
+    // provided. post-migrate.sql creates the role with a default dev password;
+    // production must override it via this env var (matched in DATABASE_URL).
+    const appPw = process.env.APP_DB_PASSWORD;
+    if (appPw) {
+      const escaped = appPw.replace(/'/g, "''");
+      await sql.unsafe(`ALTER ROLE podlife_app WITH PASSWORD '${escaped}';`);
+    }
 
     // 4. Seed default event types — uses the runtime db instance, which is
     // fine because the seed only does INSERT ... ON CONFLICT DO NOTHING.

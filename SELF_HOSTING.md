@@ -51,12 +51,35 @@ FRONTEND_URL=https://podlife.example.com
 If you serve the API and the web UI from different domains, set them to
 different values.
 
-### Set a strong database password
+### Set strong database passwords
+
+Pod Life uses **two** database roles, and this split is a privacy requirement,
+not a nicety:
+
+- **`podlife`** — the owner/superuser. Used **only** for migrations.
+- **`podlife_app`** — a non-superuser login role the running app connects as.
+
+Row-Level Security (the database-level privacy backstop that stops one person's
+data leaking into another's pod) is **bypassed unconditionally by superusers
+and BYPASSRLS roles**. If the app connects as the superuser, RLS is silently
+inert. The app must therefore connect as `podlife_app`. The migration step
+creates that role and grants it the needed privileges automatically.
 
 ```env
-DB_PASSWORD=<long random string from `openssl rand -base64 32`>
-DATABASE_URL=postgresql://podlife:<that password>@postgres:5432/podlife
+DB_PASSWORD=<long random string from `openssl rand -base64 32`>     # owner
+APP_DB_PASSWORD=<a different long random string>                    # app role
+
+# Runtime app role — RLS applies:
+DATABASE_URL=postgresql://podlife_app:<APP_DB_PASSWORD>@postgres:5432/podlife
+# Migrations only (owner/superuser):
+DATABASE_ADMIN_URL=postgresql://podlife:<DB_PASSWORD>@postgres:5432/podlife
 ```
+
+`pnpm db:migrate` reads `DATABASE_ADMIN_URL`, creates/updates the `podlife_app`
+role (setting its password from `APP_DB_PASSWORD`), applies the RLS policies,
+and seeds. Run it before the app starts. To verify RLS is actually enforcing,
+connect as `podlife_app` and confirm `SELECT count(*) FROM partnerships`
+returns 0 with no `app.current_person_id` set.
 
 ---
 
