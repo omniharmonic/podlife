@@ -9,6 +9,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { EditorialHeading } from '@/components/ui/EditorialHeading';
 import { EmojiPicker } from '@/components/ui/EmojiPicker';
 import { useUiStore } from '@/stores/ui.store';
+import { cadenceLabel } from '@/lib/constants';
 
 /**
  * Pods list. When the user has exactly one pod we redirect to its detail
@@ -102,7 +103,7 @@ export function PodsPage() {
                       {pod.name}
                     </h3>
                     <p className="text-sm text-ink-500 truncate mt-0.5">
-                      {pod.description ?? `${cadenceShort(pod.schedulingCadence)} check-ins`}
+                      {pod.description ?? `${cadenceLabel(pod.schedulingCadence)} check-ins`}
                     </p>
                   </div>
                   <span
@@ -143,6 +144,7 @@ export function PodsPage() {
             placeholder="e.g., Home Base"
             value={name}
             onChange={(e) => setName(e.currentTarget.value)}
+            maxLength={80}
             required
           />
           <EmojiPicker value={emoji} onChange={setEmoji} label="Emoji" />
@@ -154,10 +156,4 @@ export function PodsPage() {
       </Modal>
     </motion.div>
   );
-}
-
-function cadenceShort(c: string): string {
-  if (c === 'biweekly') return 'Biweekly';
-  if (c === 'monthly') return 'Monthly';
-  return 'Weekly';
 }
