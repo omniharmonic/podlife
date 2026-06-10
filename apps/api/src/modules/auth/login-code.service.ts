@@ -11,7 +11,7 @@
  * verify endpoint so existing test/client code keeps compiling. Internally
  * we always normalize (uppercase + strip separators) before hashing.
  */
-import { randomInt } from 'node:crypto';
+import { createHash, randomInt } from 'node:crypto';
 import { and, desc, eq, gt, isNull } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import {
@@ -24,8 +24,36 @@ import { AuthError } from '../../lib/errors.js';
 import { hashToken, verifyToken } from '../../lib/hash.js';
 import { logger } from '../../lib/logger.js';
 import { config } from '../../lib/config.js';
+import { redis, redisFor } from '../../lib/redis.js';
 import { db } from '../../db/index.js';
 import { auditLog, magicLinks, persons, sessions } from '../../db/schema.js';
+
+// Per-email throttle on code requests: caps inbox spam and shrinks the
+// guessing surface (each outstanding code allows LOGIN_CODE_MAX_ATTEMPTS
+// guesses). When exceeded we silently no-op with a success-shaped response so
+// the endpoint still never reveals whether an email is known.
+const LOGIN_CODE_MAX_REQUESTS_PER_WINDOW = 5;
+const LOGIN_CODE_REQUEST_WINDOW_SECONDS = 15 * 60;
+const throttleKey = redisFor('login-req');
+
+/** Stable, non-reversible tag for correlating logs without storing PII. */
+function emailTag(email: string): string {
+  return createHash('sha256').update(email.toLowerCase()).digest('hex').slice(0, 12);
+}
+
+async function overEmailRequestLimit(email: string): Promise<boolean> {
+  // Best-effort: if Redis is unavailable, fail open (don't block sign-in).
+  try {
+    const key = throttleKey(emailTag(email));
+    const count = await redis.incr(key);
+    if (count === 1) {
+      await redis.expire(key, LOGIN_CODE_REQUEST_WINDOW_SECONDS);
+    }
+    return count > LOGIN_CODE_MAX_REQUESTS_PER_WINDOW;
+  } catch {
+    return false;
+  }
+}
 import type { PersonRow } from '../../db/schema.js';
 import { sendEmail } from '../../services/email/email.service.js';
 import {
@@ -76,9 +104,23 @@ function normalizeCode(input: string): string {
 }
 
 export async function requestLoginCode(email: string): Promise<LoginCodeRequestResult> {
+  // Throttle (except in tests, which issue many codes per second). On limit,
+  // return success-shaped without sending — no enumeration signal, no spam.
+  if (!config.isTest && (await overEmailRequestLimit(email))) {
+    logger.warn('login code request throttled', { emailTag: emailTag(email) });
+    return { ok: true };
+  }
+
   const code = generateCode();
   const tokenHash = await hashToken(code);
   const expiresAt = new Date(Date.now() + LOGIN_CODE_TTL_MINUTES * 60_000);
+
+  // Invalidate any still-valid codes for this email so only one is live at a
+  // time — fewer concurrent guessing targets.
+  await db
+    .update(magicLinks)
+    .set({ usedAt: new Date() })
+    .where(and(eq(magicLinks.email, email), isNull(magicLinks.usedAt)));
 
   await db.insert(magicLinks).values({
     email,
@@ -118,7 +160,9 @@ export async function requestLoginCode(email: string): Promise<LoginCodeRequestR
     html,
   });
 
-  logger.info('login code requested', { email });
+  // Log a non-reversible tag, never the raw email (PII for an intimate-
+  // relationship app, and these logs typically ship to an aggregator).
+  logger.info('login code requested', { emailTag: emailTag(email) });
 
   // Only leak the code back to the client in non-production environments
   // where the email won't actually be delivered.

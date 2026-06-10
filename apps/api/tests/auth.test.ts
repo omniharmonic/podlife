@@ -39,6 +39,24 @@ describe('auth', () => {
     expect(r3.body.person.email).toBe(email);
   });
 
+  it('requesting a new code invalidates any prior outstanding code', async () => {
+    const app = newApp();
+    const email = uniqueEmail();
+    created.push(email);
+
+    const first = await call(app, '/auth/magic-link', { method: 'POST', json: { email } });
+    const firstCode = first.body.devToken as string;
+    // Second request supersedes the first.
+    await call(app, '/auth/magic-link', { method: 'POST', json: { email } });
+
+    // The first (now-superseded) code must no longer verify.
+    const stale = await call(app, '/auth/verify', {
+      method: 'POST',
+      json: { email, token: firstCode },
+    });
+    expect(stale.status).toBe(401);
+  });
+
   it('rejects invalid login codes', async () => {
     const app = newApp();
     const email = uniqueEmail();
